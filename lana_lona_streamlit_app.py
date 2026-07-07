@@ -496,7 +496,7 @@ elif st.session_state.screen == "wedding":
                 key="wedding_weight_input_2",
             )
 
-        if st.button("ПЕРЕРАХУВАТИ ПО ВАГІ", use_container_width=True, key="recalculate_wedding_weight"):
+        if st.button("ПЕРЕРАХУВАТИ ПО ВАЗІ", use_container_width=True, key="recalculate_wedding_weight"):
             st.session_state.wedding_manual_weight_1 = manual_weight_1_right
             st.session_state.wedding_manual_weight_2 = manual_weight_2_right
             technical_text, client_text = calculate_wedding_rings({
@@ -612,4 +612,4 @@ elif st.session_state.screen == "ring":
         st.text_area("Технічний текст", value=st.session_state.get("technical_text", ""), height=420)
 
         st.subheader("📋 Текст для клієнта")
-        st.text_area("Скопіюй цей текст клієнту", value=st.session_state.get("client_text", ""), height=300)
+        st.text_area("", value=st.session_state.get("client_text", ""), height=300)
