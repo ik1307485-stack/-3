@@ -117,6 +117,11 @@ def calculate_wedding_rings(data):
     delivery = data["delivery"]
     discount_percent = data["discount_percent"]
 
+    ring_stone_enabled = data["ring_stone_enabled"]
+    ring_stone_ring = data["ring_stone_ring"]
+    ring_stone_size = data["ring_stone_size"]
+    ring_stone_qty = data["ring_stone_qty"] if ring_stone_enabled else 0
+
     weight_1 = calc_weight(size_1, width_1, thickness_1)
     weight_2 = calc_weight(size_2, width_2, thickness_2)
     total_weight = weight_1 + weight_2
@@ -127,7 +132,16 @@ def calculate_wedding_rings(data):
     work_after_discount = work_cost - discount
     gold_cost = total_weight * GOLD_PRICE
 
-    total = gold_cost + work_after_discount + PACKAGING + engraving + coating_uah + delivery
+    base_total_without_stones = gold_cost + work_after_discount + PACKAGING + engraving + coating_uah + delivery
+
+    # У технічному розрахунку базово показуємо натуральні діаманти
+    stones_usd, stones_uah = get_stone_cost_by_type(
+        "Натуральні діаманти",
+        ring_stone_size,
+        ring_stone_qty,
+        usd_rate,
+    )
+    total = base_total_without_stones + stones_uah
 
     title = (
         "Індивідуальна модель обручок «Вишиванка» ⚜️"
@@ -135,6 +149,10 @@ def calculate_wedding_rings(data):
         else "Індивідуальна модель обручок ⚜️"
     )
     coating_client = "Без покриття" if coating_usd == 0 else "Родій"
+
+    inserts_text = "не додано"
+    if ring_stone_qty > 0:
+        inserts_text = f"{ring_stone_size} - {ring_stone_qty} шт в обручку {ring_stone_ring}"
 
     technical_text = f"""Курс USD: {usd_rate:.2f} грн
 
@@ -172,7 +190,7 @@ def calculate_wedding_rings(data):
 {money(coating_uah)} грн
 
 Діаманти / каміння:
-0 грн (0$)
+{money(stones_uah)} грн ({stones_usd}$)
 
 Доставка:
 {money(delivery)} грн
@@ -189,13 +207,36 @@ def calculate_wedding_rings(data):
 Ширина: {width_1:g} мм та {width_2:g} мм
 Покриття: {coating_client}
 Середня вага виробу: {total_weight:.1f} г
+"""
 
+    if ring_stone_qty > 0:
+        variant_totals = {}
+        for stone_type in STONE_PRICES_USD.keys():
+            _, stone_uah_variant = get_stone_cost_by_type(
+                stone_type,
+                ring_stone_size,
+                ring_stone_qty,
+                usd_rate,
+            )
+            variant_totals[stone_type] = base_total_without_stones + stone_uah_variant
+
+        client_text += f"""Вставки: {inserts_text}
+
+Середня вартість виробу:
+• з натуральними діамантами:
+{money100(variant_totals["Натуральні діаманти"])} грн 💎
+• з лабораторними діамантами:
+{money100(variant_totals["Лабораторні діаманти"])} грн 💎
+• з муасанітами:
+{money100(variant_totals["Муасаніти"])} грн 💎
+"""
+    else:
+        client_text += f"""
 Середня вартість виробу:
 {money100(total)} грн 💎
 """
 
     return technical_text, client_text
-
 
 def calculate_ring(data):
     usd_rate = get_usd_rate()
@@ -355,19 +396,21 @@ elif st.session_state.screen == "wedding":
         design = st.selectbox("Дизайн", ["Вишиванка", "Індивідуальний"])
 
         st.markdown("### Обручка 1")
-        size_1 = st.number_input("Розмір 1", min_value=1.0, value=16.0, step=0.5)
-        width_1 = st.number_input("Ширина 1, мм", min_value=0.1, value=5.0, step=0.1)
-        thickness_1 = st.number_input("Товщина 1, мм", min_value=0.1, value=1.2, step=0.1)
+        size_1 = st.number_input("Розмір 1", min_value=1.0, value=19.0, step=0.5)
+        width_1 = st.number_input("Ширина 1, мм", min_value=0.1, value=4.0, step=0.1)
+        thickness_1 = st.number_input("Товщина 1, мм", min_value=0.1, value=1.0, step=0.1)
 
         st.markdown("### Обручка 2")
-        size_2 = st.number_input("Розмір 2", min_value=1.0, value=19.0, step=0.5)
-        width_2 = st.number_input("Ширина 2, мм", min_value=0.1, value=5.0, step=0.1)
-        thickness_2 = st.number_input("Товщина 2, мм", min_value=0.1, value=1.2, step=0.1)\
-        
-        st.markdown("### Вставки")
+        size_2 = st.number_input("Розмір 2", min_value=1.0, value=16.0, step=0.5)
+        width_2 = st.number_input("Ширина 2, мм", min_value=0.1, value=4.0, step=0.1)
+        thickness_2 = st.number_input("Товщина 2, мм", min_value=0.1, value=1.0, step=0.1)
+
+        st.markdown("### Діаманти в одну обручку")
         stone_sizes = list(STONE_PRICES_USD["Натуральні діаманти"].keys())
-        main_size = st.selectbox("Основний діамант — розмір", stone_sizes, index=0)
-        main_qty = st.number_input("Основний діамант — к-сть", min_value=0, value=0, step=1)
+        ring_stone_enabled = st.checkbox("Додати діаманти в обручку")
+        ring_stone_ring = st.selectbox("В яку обручку додати", [1, 2], disabled=not ring_stone_enabled)
+        ring_stone_size = st.selectbox("Розмір діаманта", stone_sizes, index=1, disabled=not ring_stone_enabled)
+        ring_stone_qty = st.number_input("Кількість діамантів", min_value=0, value=0, step=1, disabled=not ring_stone_enabled)
 
         st.markdown("### Додатково")
         discount_percent = st.selectbox("Знижка, %", [0, 7, 10, 15, 20])
@@ -391,6 +434,10 @@ elif st.session_state.screen == "wedding":
                 "coating_usd": coating_usd,
                 "engraving": engraving,
                 "delivery": delivery,
+                "ring_stone_enabled": ring_stone_enabled,
+                "ring_stone_ring": ring_stone_ring,
+                "ring_stone_size": ring_stone_size,
+                "ring_stone_qty": ring_stone_qty,
             })
             st.session_state.technical_text = technical_text
             st.session_state.client_text = client_text
@@ -412,8 +459,8 @@ elif st.session_state.screen == "ring":
         st.info("Для каблучки робота завжди рахується по 6100 грн/г. Дизайн тут не вибирається.")
 
         size = st.number_input("Розмір", min_value=1.0, value=16.0, step=0.5)
-        width = st.number_input("Ширина, мм", min_value=0.1, value=2.5, step=0.1)
-        thickness = st.number_input("Товщина, мм", min_value=0.1, value=1.2, step=0.1)
+        width = st.number_input("Ширина, мм", min_value=0.1, value=4.0, step=0.1)
+        thickness = st.number_input("Товщина, мм", min_value=0.1, value=1.8, step=0.1)
 
         st.markdown("### Вставки")
         stone_sizes = list(STONE_PRICES_USD["Натуральні діаманти"].keys())
