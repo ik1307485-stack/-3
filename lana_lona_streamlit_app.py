@@ -152,7 +152,7 @@ def calculate_wedding_rings(data):
 
     inserts_text = "не додано"
     if ring_stone_qty > 0:
-        inserts_text = f"{ring_stone_size} - {ring_stone_qty} шт в обручку {ring_stone_ring}"
+        inserts_text = f"{ring_stone_size} - {ring_stone_qty} шт "
 
     technical_text = f"""Курс USD: {usd_rate:.2f} грн
 
