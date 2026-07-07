@@ -396,14 +396,14 @@ elif st.session_state.screen == "wedding":
         design = st.selectbox("Дизайн", ["Вишиванка", "Індивідуальний"])
 
         st.markdown("### Обручка 1")
-        size_1 = st.number_input("Розмір 1", min_value=1.0, value=19.0, step=0.5)
-        width_1 = st.number_input("Ширина 1, мм", min_value=0.1, value=4.0, step=0.1)
-        thickness_1 = st.number_input("Товщина 1, мм", min_value=0.1, value=1.0, step=0.1)
+        size_1 = st.number_input("Розмір 1", min_value=1.0, value=16.0, step=0.5)
+        width_1 = st.number_input("Ширина 1, мм", min_value=0.1, value=5.0, step=0.1)
+        thickness_1 = st.number_input("Товщина 1, мм", min_value=0.1, value=1.2, step=0.1)
 
         st.markdown("### Обручка 2")
-        size_2 = st.number_input("Розмір 2", min_value=1.0, value=16.0, step=0.5)
-        width_2 = st.number_input("Ширина 2, мм", min_value=0.1, value=4.0, step=0.1)
-        thickness_2 = st.number_input("Товщина 2, мм", min_value=0.1, value=1.0, step=0.1)
+        size_2 = st.number_input("Розмір 2", min_value=1.0, value=19.0, step=0.5)
+        width_2 = st.number_input("Ширина 2, мм", min_value=0.1, value=5.0, step=0.1)
+        thickness_2 = st.number_input("Товщина 2, мм", min_value=0.1, value=1.2, step=0.1)
 
         st.markdown("### Діаманти в одну обручку")
         stone_sizes = list(STONE_PRICES_USD["Натуральні діаманти"].keys())
@@ -459,8 +459,8 @@ elif st.session_state.screen == "ring":
         st.info("Для каблучки робота завжди рахується по 6100 грн/г. Дизайн тут не вибирається.")
 
         size = st.number_input("Розмір", min_value=1.0, value=16.0, step=0.5)
-        width = st.number_input("Ширина, мм", min_value=0.1, value=4.0, step=0.1)
-        thickness = st.number_input("Товщина, мм", min_value=0.1, value=1.8, step=0.1)
+        width = st.number_input("Ширина, мм", min_value=0.1, value=2.5, step=0.1)
+        thickness = st.number_input("Товщина, мм", min_value=0.1, value=1.2, step=0.1)
 
         st.markdown("### Вставки")
         stone_sizes = list(STONE_PRICES_USD["Натуральні діаманти"].keys())
