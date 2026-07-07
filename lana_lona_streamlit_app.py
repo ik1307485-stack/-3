@@ -523,8 +523,10 @@ elif st.session_state.screen == "wedding":
 
         st.text_area("Технічний текст", value=st.session_state.get("technical_text", ""), height=420)
 
-        st.subheader("📋 Текст для клієнта")
-        st.text_area("Скопіюй цей текст клієнту", value=st.session_state.get("client_text", ""), height=300)
+        client_text = st.session_state.get("client_text", "")
+
+        st.code(client_text, language=None)
+        st.caption("Натисни кнопку у правому верхньому куті блоку, щоб скопіювати текст.")
 
 elif st.session_state.screen == "ring":
     st.button("← Назад", on_click=go_start)
