@@ -375,7 +375,7 @@ def calculate_ring(data):
     return technical_text, client_text
 
 
-st.set_page_config(page_title="Калькулятор Lana & Lona", layout="wide")
+st.set_page_config(page_title="Калькулятор Lana & Lona", layout="centered")
 
 if "screen" not in st.session_state:
     st.session_state.screen = "start"
@@ -383,233 +383,259 @@ if "screen" not in st.session_state:
 st.markdown(
     """
     <style>
-    .main-title {text-align:center; font-size:34px; font-weight:700; margin-top:40px;}
-    .gold-button button {background-color:#d4af37 !important; color:black !important; font-weight:700 !important;}
-    textarea {font-size:16px !important;}
+    .main-title {
+        text-align:center;
+        font-size:32px;
+        font-weight:700;
+        margin-top:24px;
+        margin-bottom:20px;
+    }
+    .block-container {
+        max-width: 720px;
+        padding-top: 1.2rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    div[data-testid="stButton"] > button {
+        min-height: 48px;
+        font-size: 17px;
+        font-weight: 700;
+        border-radius: 10px;
+    }
+    div[data-testid="stNumberInput"] input,
+    div[data-testid="stSelectbox"] div,
+    textarea {
+        font-size: 16px !important;
+    }
+    textarea {
+        min-height: 220px;
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 
+def clear_outputs():
+    st.session_state.technical_text = ""
+    st.session_state.client_text = ""
+
+
 def go_start():
     st.session_state.screen = "start"
+    clear_outputs()
 
 
 def go_wedding():
     st.session_state.screen = "wedding"
+    clear_outputs()
 
 
 def go_ring():
     st.session_state.screen = "ring"
+    clear_outputs()
 
 
 if st.session_state.screen == "start":
     st.markdown('<div class="main-title">Що потрібно прорахувати?</div>', unsafe_allow_html=True)
-    st.write("")
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
-        st.button("Обручки", use_container_width=True, on_click=go_wedding)
-        st.button("Каблучка", use_container_width=True, on_click=go_ring)
+    st.button("Обручки", use_container_width=True, on_click=go_wedding)
+    st.button("Каблучка", use_container_width=True, on_click=go_ring)
 
 elif st.session_state.screen == "wedding":
     st.button("← Назад", on_click=go_start)
     st.title("Калькулятор обручок")
 
-    left, right = st.columns([1, 1.4])
+    st.subheader("Дані для прорахунку")
+    design = st.selectbox("Дизайн", ["Вишиванка", "Індивідуальний"])
 
-    with left:
-        st.subheader("Дані для прорахунку")
-        design = st.selectbox("Дизайн", ["Вишиванка", "Індивідуальний"])
-
-        st.markdown("### Обручка 1")
+    with st.expander("Обручка 1", expanded=True):
         size_1 = st.number_input("Розмір 1", min_value=1.0, value=16.0, step=0.5)
         width_1 = st.number_input("Ширина 1, мм", min_value=0.1, value=5.0, step=0.1)
         thickness_1 = st.number_input("Товщина 1, мм", min_value=0.1, value=1.2, step=0.1)
-        st.markdown("### Обручка 2")
+
+    with st.expander("Обручка 2", expanded=True):
         size_2 = st.number_input("Розмір 2", min_value=1.0, value=19.0, step=0.5)
         width_2 = st.number_input("Ширина 2, мм", min_value=0.1, value=5.0, step=0.1)
         thickness_2 = st.number_input("Товщина 2, мм", min_value=0.1, value=1.2, step=0.1)
-        st.markdown("### Вставки каміння")
+
+    with st.expander("Вставки каміння", expanded=False):
         stone_sizes = list(STONE_PRICES_USD["Натуральні діаманти"].keys())
         ring_stone_enabled = st.checkbox("Додати діаманти в обручку")
         ring_stone_ring = st.selectbox("В яку обручку додати", [1, 2], disabled=not ring_stone_enabled)
         ring_stone_size = st.selectbox("Розмір діаманта", stone_sizes, index=1, disabled=not ring_stone_enabled)
         ring_stone_qty = st.number_input("Кількість діамантів", min_value=0, value=0, step=1, disabled=not ring_stone_enabled)
 
-        st.markdown("### Додатково")
+    with st.expander("Додатково", expanded=True):
         discount_percent = st.selectbox("Знижка, %", [0, 7, 10, 15, 20])
         coating_usd = st.selectbox("Покриття, $", [0, 50, 100, 200])
         engraving = st.selectbox("Гравіювання, грн", [0, 800, 1500])
         delivery = st.number_input("Доставка, грн", min_value=0.0, value=0.0, step=100.0)
 
-        calculate_btn = st.button("РОЗРАХУВАТИ", use_container_width=True)
+    calculate_btn = st.button("РОЗРАХУВАТИ", use_container_width=True)
 
-    with right:
-        current_auto_weight_1 = calc_weight(size_1, width_1, thickness_1)
-        current_auto_weight_2 = calc_weight(size_2, width_2, thickness_2)
+    current_auto_weight_1 = calc_weight(size_1, width_1, thickness_1)
+    current_auto_weight_2 = calc_weight(size_2, width_2, thickness_2)
 
-        if calculate_btn:
-            st.session_state.wedding_manual_weight_1 = 0.0
-            st.session_state.wedding_manual_weight_2 = 0.0
-            technical_text, client_text = calculate_wedding_rings({
-                "design": design,
-                "size_1": size_1,
-                "width_1": width_1,
-                "thickness_1": thickness_1,
-                "manual_weight_1": 0.0,
-                "size_2": size_2,
-                "width_2": width_2,
-                "thickness_2": thickness_2,
-                "manual_weight_2": 0.0,
-                "discount_percent": discount_percent,
-                "coating_usd": coating_usd,
-                "engraving": engraving,
-                "delivery": delivery,
-                "ring_stone_enabled": ring_stone_enabled,
-                "ring_stone_ring": ring_stone_ring,
-                "ring_stone_size": ring_stone_size,
-                "ring_stone_qty": ring_stone_qty,
-            })
-            st.session_state.technical_text = technical_text
-            st.session_state.client_text = client_text
+    if calculate_btn:
+        st.session_state.wedding_manual_weight_1 = 0.0
+        st.session_state.wedding_manual_weight_2 = 0.0
+        technical_text, client_text = calculate_wedding_rings({
+            "design": design,
+            "size_1": size_1,
+            "width_1": width_1,
+            "thickness_1": thickness_1,
+            "manual_weight_1": 0.0,
+            "size_2": size_2,
+            "width_2": width_2,
+            "thickness_2": thickness_2,
+            "manual_weight_2": 0.0,
+            "discount_percent": discount_percent,
+            "coating_usd": coating_usd,
+            "engraving": engraving,
+            "delivery": delivery,
+            "ring_stone_enabled": ring_stone_enabled,
+            "ring_stone_ring": ring_stone_ring,
+            "ring_stone_size": ring_stone_size,
+            "ring_stone_qty": ring_stone_qty,
+        })
+        st.session_state.technical_text = technical_text
+        st.session_state.client_text = client_text
 
-        st.subheader("📊 Технічний розрахунок")
-        st.caption("Тут менеджер може виправити вагу вручну і перерахувати ціну.")
-        weight_col1, weight_col2 = st.columns(2)
-        with weight_col1:
-            manual_weight_1_right = st.number_input(
-                "Вага виробу 1, г",
-                min_value=0.0,
-                value=st.session_state.get("wedding_manual_weight_1", 0.0) or current_auto_weight_1,
-                step=0.1,
-                format="%.2f",
-                key="wedding_weight_input_1",
-            )
-        with weight_col2:
-            manual_weight_2_right = st.number_input(
-                "Вага виробу 2, г",
-                min_value=0.0,
-                value=st.session_state.get("wedding_manual_weight_2", 0.0) or current_auto_weight_2,
-                step=0.1,
-                format="%.2f",
-                key="wedding_weight_input_2",
-            )
+    st.divider()
+    st.subheader("📊 Технічний розрахунок")
+    st.caption("Тут менеджер може виправити вагу вручну і перерахувати ціну.")
 
-        if st.button("ПЕРЕРАХУВАТИ ПО ВАЗІ", use_container_width=True, key="recalculate_wedding_weight"):
-            st.session_state.wedding_manual_weight_1 = manual_weight_1_right
-            st.session_state.wedding_manual_weight_2 = manual_weight_2_right
-            technical_text, client_text = calculate_wedding_rings({
-                "design": design,
-                "size_1": size_1,
-                "width_1": width_1,
-                "thickness_1": thickness_1,
-                "manual_weight_1": manual_weight_1_right,
-                "size_2": size_2,
-                "width_2": width_2,
-                "thickness_2": thickness_2,
-                "manual_weight_2": manual_weight_2_right,
-                "discount_percent": discount_percent,
-                "coating_usd": coating_usd,
-                "engraving": engraving,
-                "delivery": delivery,
-                "ring_stone_enabled": ring_stone_enabled,
-                "ring_stone_ring": ring_stone_ring,
-                "ring_stone_size": ring_stone_size,
-                "ring_stone_qty": ring_stone_qty,
-            })
-            st.session_state.technical_text = technical_text
-            st.session_state.client_text = client_text
+    manual_weight_1_right = st.number_input(
+        "Вага виробу 1, г",
+        min_value=0.0,
+        value=st.session_state.get("wedding_manual_weight_1", 0.0) or current_auto_weight_1,
+        step=0.1,
+        format="%.2f",
+        key="wedding_weight_input_1_mobile",
+    )
+    manual_weight_2_right = st.number_input(
+        "Вага виробу 2, г",
+        min_value=0.0,
+        value=st.session_state.get("wedding_manual_weight_2", 0.0) or current_auto_weight_2,
+        step=0.1,
+        format="%.2f",
+        key="wedding_weight_input_2_mobile",
+    )
 
-        st.text_area("Технічний текст", value=st.session_state.get("technical_text", ""), height=420)
+    if st.button("ПЕРЕРАХУВАТИ ПО ВАЗІ", use_container_width=True, key="recalculate_wedding_weight_mobile"):
+        st.session_state.wedding_manual_weight_1 = manual_weight_1_right
+        st.session_state.wedding_manual_weight_2 = manual_weight_2_right
+        technical_text, client_text = calculate_wedding_rings({
+            "design": design,
+            "size_1": size_1,
+            "width_1": width_1,
+            "thickness_1": thickness_1,
+            "manual_weight_1": manual_weight_1_right,
+            "size_2": size_2,
+            "width_2": width_2,
+            "thickness_2": thickness_2,
+            "manual_weight_2": manual_weight_2_right,
+            "discount_percent": discount_percent,
+            "coating_usd": coating_usd,
+            "engraving": engraving,
+            "delivery": delivery,
+            "ring_stone_enabled": ring_stone_enabled,
+            "ring_stone_ring": ring_stone_ring,
+            "ring_stone_size": ring_stone_size,
+            "ring_stone_qty": ring_stone_qty,
+        })
+        st.session_state.technical_text = technical_text
+        st.session_state.client_text = client_text
 
-        client_text = st.session_state.get("client_text", "")
+    st.text_area("Технічний текст", value=st.session_state.get("technical_text", ""), height=360)
 
-        st.code(client_text, language=None)
-        st.caption("Натисни кнопку у правому верхньому куті блоку, щоб скопіювати текст.")
+    st.subheader("📋 Текст для клієнта")
+    client_text = st.session_state.get("client_text", "")
+    st.code(client_text, language=None)
+    st.caption("Натисни Copy у правому верхньому куті блоку, щоб скопіювати текст.")
 
 elif st.session_state.screen == "ring":
     st.button("← Назад", on_click=go_start)
     st.title("Калькулятор каблучки")
 
-    left, right = st.columns([1, 1.4])
+    st.subheader("Дані для прорахунку")
+    st.info("Для каблучки робота завжди рахується по 6100 грн/г. Дизайн тут не вибирається.")
 
-    with left:
-        st.subheader("Дані для прорахунку")
-        st.info("Для каблучки робота завжди рахується по 6100 грн/г. Дизайн тут не вибирається.")
-
+    with st.expander("Параметри каблучки", expanded=True):
         size = st.number_input("Розмір", min_value=1.0, value=16.0, step=0.5)
         width = st.number_input("Ширина, мм", min_value=0.1, value=2.5, step=0.1)
         thickness = st.number_input("Товщина, мм", min_value=0.1, value=1.2, step=0.1)
-        st.markdown("### Вставки")
+
+    with st.expander("Вставки", expanded=True):
         stone_sizes = list(STONE_PRICES_USD["Натуральні діаманти"].keys())
         main_size = st.selectbox("Основний діамант — розмір", stone_sizes, index=0)
         main_qty = st.number_input("Основний діамант — к-сть", min_value=0, value=0, step=1)
-
         small_size = st.selectbox("Малі діаманти — розмір", stone_sizes, index=0)
         small_qty = st.number_input("Малі діаманти — к-сть", min_value=0, value=0, step=1)
 
-        st.markdown("### Додатково")
+    with st.expander("Додатково", expanded=True):
         discount_percent = st.selectbox("Знижка, %", [0, 7, 10, 15, 20])
         coating_usd = st.selectbox("Покриття, $", [0, 50, 100, 200])
         engraving = st.selectbox("Гравіювання, грн", [0, 800, 1500])
         delivery = st.number_input("Доставка, грн", min_value=0.0, value=0.0, step=100.0)
 
-        calculate_btn = st.button("РОЗРАХУВАТИ", use_container_width=True)
+    calculate_btn = st.button("РОЗРАХУВАТИ", use_container_width=True)
 
-    with right:
-        current_auto_weight = calc_weight(size, width, thickness)
+    current_auto_weight = calc_weight(size, width, thickness)
 
-        if calculate_btn:
-            st.session_state.ring_manual_weight = 0.0
-            technical_text, client_text = calculate_ring({
-                "size": size,
-                "width": width,
-                "thickness": thickness,
-                "manual_weight": 0.0,
-                "main_size": main_size,
-                "main_qty": main_qty,
-                "small_size": small_size,
-                "small_qty": small_qty,
-                "discount_percent": discount_percent,
-                "coating_usd": coating_usd,
-                "engraving": engraving,
-                "delivery": delivery,
-            })
-            st.session_state.technical_text = technical_text
-            st.session_state.client_text = client_text
+    if calculate_btn:
+        st.session_state.ring_manual_weight = 0.0
+        technical_text, client_text = calculate_ring({
+            "size": size,
+            "width": width,
+            "thickness": thickness,
+            "manual_weight": 0.0,
+            "main_size": main_size,
+            "main_qty": main_qty,
+            "small_size": small_size,
+            "small_qty": small_qty,
+            "discount_percent": discount_percent,
+            "coating_usd": coating_usd,
+            "engraving": engraving,
+            "delivery": delivery,
+        })
+        st.session_state.technical_text = technical_text
+        st.session_state.client_text = client_text
 
-        st.subheader("📊 Технічний розрахунок")
-        st.caption("Тут менеджер може виправити вагу вручну і перерахувати ціну.")
-        manual_weight_right = st.number_input(
-            "Вага виробу, г",
-            min_value=0.0,
-            value=st.session_state.get("ring_manual_weight", 0.0) or current_auto_weight,
-            step=0.1,
-            format="%.2f",
-            key="ring_weight_input",
-        )
+    st.divider()
+    st.subheader("📊 Технічний розрахунок")
+    st.caption("Тут менеджер може виправити вагу вручну і перерахувати ціну.")
+    manual_weight_right = st.number_input(
+        "Вага виробу, г",
+        min_value=0.0,
+        value=st.session_state.get("ring_manual_weight", 0.0) or current_auto_weight,
+        step=0.1,
+        format="%.2f",
+        key="ring_weight_input_mobile",
+    )
 
-        if st.button("ПЕРЕРАХУВАТИ ПО ВАГІ", use_container_width=True, key="recalculate_ring_weight"):
-            st.session_state.ring_manual_weight = manual_weight_right
-            technical_text, client_text = calculate_ring({
-                "size": size,
-                "width": width,
-                "thickness": thickness,
-                "manual_weight": manual_weight_right,
-                "main_size": main_size,
-                "main_qty": main_qty,
-                "small_size": small_size,
-                "small_qty": small_qty,
-                "discount_percent": discount_percent,
-                "coating_usd": coating_usd,
-                "engraving": engraving,
-                "delivery": delivery,
-            })
-            st.session_state.technical_text = technical_text
-            st.session_state.client_text = client_text
+    if st.button("ПЕРЕРАХУВАТИ ПО ВАЗІ", use_container_width=True, key="recalculate_ring_weight_mobile"):
+        st.session_state.ring_manual_weight = manual_weight_right
+        technical_text, client_text = calculate_ring({
+            "size": size,
+            "width": width,
+            "thickness": thickness,
+            "manual_weight": manual_weight_right,
+            "main_size": main_size,
+            "main_qty": main_qty,
+            "small_size": small_size,
+            "small_qty": small_qty,
+            "discount_percent": discount_percent,
+            "coating_usd": coating_usd,
+            "engraving": engraving,
+            "delivery": delivery,
+        })
+        st.session_state.technical_text = technical_text
+        st.session_state.client_text = client_text
 
-        st.text_area("Технічний текст", value=st.session_state.get("technical_text", ""), height=420)
+    st.text_area("Технічний текст", value=st.session_state.get("technical_text", ""), height=360)
 
-        st.subheader("📋 Текст для клієнта")
-        st.text_area("", value=st.session_state.get("client_text", ""), height=300)
+    st.subheader("📋 Текст для клієнта")
+    client_text = st.session_state.get("client_text", "")
+    st.code(client_text, language=None)
+    st.caption("Натисни Copy у правому верхньому куті блоку, щоб скопіювати текст.")
