@@ -405,7 +405,7 @@ elif st.session_state.screen == "wedding":
         width_2 = st.number_input("Ширина 2, мм", min_value=0.1, value=5.0, step=0.1)
         thickness_2 = st.number_input("Товщина 2, мм", min_value=0.1, value=1.2, step=0.1)
 
-        st.markdown("### Діаманти в одну обручку")
+        st.markdown("### Вставки каміння")
         stone_sizes = list(STONE_PRICES_USD["Натуральні діаманти"].keys())
         ring_stone_enabled = st.checkbox("Додати діаманти в обручку")
         ring_stone_ring = st.selectbox("В яку обручку додати", [1, 2], disabled=not ring_stone_enabled)
