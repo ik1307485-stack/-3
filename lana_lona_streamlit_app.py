@@ -122,8 +122,26 @@ def calculate_wedding_rings(data):
     ring_stone_size = data["ring_stone_size"]
     ring_stone_qty = data["ring_stone_qty"] if ring_stone_enabled else 0
 
-    weight_1 = calc_weight(size_1, width_1, thickness_1)
-    weight_2 = calc_weight(size_2, width_2, thickness_2)
+    manual_weight_1 = data.get("manual_weight_1", 0)
+    manual_weight_2 = data.get("manual_weight_2", 0)
+
+    auto_weight_1 = calc_weight(size_1, width_1, thickness_1)
+    auto_weight_2 = calc_weight(size_2, width_2, thickness_2)
+
+    if manual_weight_1 > 0:
+        weight_1 = manual_weight_1
+        weight_note_1 = "Вага виробу 1 задана вручну"
+    else:
+        weight_1 = auto_weight_1
+        weight_note_1 = "Вага виробу 1 розрахована автоматично"
+
+    if manual_weight_2 > 0:
+        weight_2 = manual_weight_2
+        weight_note_2 = "Вага виробу 2 задана вручну"
+    else:
+        weight_2 = auto_weight_2
+        weight_note_2 = "Вага виробу 2 розрахована автоматично"
+
     total_weight = weight_1 + weight_2
 
     work_per_gram = get_work_price("Пара обручок", design)
@@ -152,17 +170,17 @@ def calculate_wedding_rings(data):
 
     inserts_text = "не додано"
     if ring_stone_qty > 0:
-        inserts_text = f"{ring_stone_size} - {ring_stone_qty} шт "
+        inserts_text = f"{ring_stone_size} - {ring_stone_qty} шт"
 
     technical_text = f"""Курс USD: {usd_rate:.2f} грн
 
 Тип виробу:
 Пара обручок
 
-Вага виробу 1:
+{weight_note_1}:
 {weight_1:.2f} г
 
-Вага виробу 2:
+{weight_note_2}:
 {weight_2:.2f} г
 
 Загальна вага:
@@ -253,9 +271,18 @@ def calculate_ring(data):
     main_qty = data["main_qty"]
     small_size = data["small_size"]
     small_qty = data["small_qty"]
+    manual_weight = data.get("manual_weight", 0)
 
-    weight_1 = calc_weight(size, width, thickness)
-    total_weight = weight_1
+    auto_weight = calc_weight(size, width, thickness)
+
+    if manual_weight > 0:
+        total_weight = manual_weight
+        weight_note = "Вага задана вручну"
+    else:
+        total_weight = auto_weight
+        weight_note = "Вага розрахована автоматично"
+
+    weight_1 = total_weight
 
     work_per_gram = get_work_price("Каблучка")
     work_cost = total_weight * work_per_gram
@@ -280,7 +307,7 @@ def calculate_ring(data):
 Тип виробу:
 Каблучка
 
-Вага виробу 1:
+{weight_note}:
 {weight_1:.2f} г
 
 Вага виробу 2:
@@ -399,11 +426,23 @@ elif st.session_state.screen == "wedding":
         size_1 = st.number_input("Розмір 1", min_value=1.0, value=16.0, step=0.5)
         width_1 = st.number_input("Ширина 1, мм", min_value=0.1, value=5.0, step=0.1)
         thickness_1 = st.number_input("Товщина 1, мм", min_value=0.1, value=1.2, step=0.1)
+        manual_weight_1 = st.number_input(
+            "Ручна вага обручки 1, г (0 = автоматично)",
+            min_value=0.0,
+            value=0.0,
+            step=0.1,
+        )
 
         st.markdown("### Обручка 2")
         size_2 = st.number_input("Розмір 2", min_value=1.0, value=19.0, step=0.5)
         width_2 = st.number_input("Ширина 2, мм", min_value=0.1, value=5.0, step=0.1)
         thickness_2 = st.number_input("Товщина 2, мм", min_value=0.1, value=1.2, step=0.1)
+        manual_weight_2 = st.number_input(
+            "Ручна вага обручки 2, г (0 = автоматично)",
+            min_value=0.0,
+            value=0.0,
+            step=0.1,
+        )
 
         st.markdown("### Вставки каміння")
         stone_sizes = list(STONE_PRICES_USD["Натуральні діаманти"].keys())
@@ -427,9 +466,11 @@ elif st.session_state.screen == "wedding":
                 "size_1": size_1,
                 "width_1": width_1,
                 "thickness_1": thickness_1,
+                "manual_weight_1": manual_weight_1,
                 "size_2": size_2,
                 "width_2": width_2,
                 "thickness_2": thickness_2,
+                "manual_weight_2": manual_weight_2,
                 "discount_percent": discount_percent,
                 "coating_usd": coating_usd,
                 "engraving": engraving,
@@ -461,6 +502,12 @@ elif st.session_state.screen == "ring":
         size = st.number_input("Розмір", min_value=1.0, value=16.0, step=0.5)
         width = st.number_input("Ширина, мм", min_value=0.1, value=2.5, step=0.1)
         thickness = st.number_input("Товщина, мм", min_value=0.1, value=1.2, step=0.1)
+        manual_weight = st.number_input(
+            "Ручна вага, г (0 = автоматично)",
+            min_value=0.0,
+            value=0.0,
+            step=0.1,
+        )
 
         st.markdown("### Вставки")
         stone_sizes = list(STONE_PRICES_USD["Натуральні діаманти"].keys())
@@ -484,6 +531,7 @@ elif st.session_state.screen == "ring":
                 "size": size,
                 "width": width,
                 "thickness": thickness,
+                "manual_weight": manual_weight,
                 "main_size": main_size,
                 "main_qty": main_qty,
                 "small_size": small_size,
