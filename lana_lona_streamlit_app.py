@@ -362,7 +362,12 @@ elif st.session_state.screen == "wedding":
         st.markdown("### Обручка 2")
         size_2 = st.number_input("Розмір 2", min_value=1.0, value=19.0, step=0.5)
         width_2 = st.number_input("Ширина 2, мм", min_value=0.1, value=5.0, step=0.1)
-        thickness_2 = st.number_input("Товщина 2, мм", min_value=0.1, value=1.2, step=0.1)
+        thickness_2 = st.number_input("Товщина 2, мм", min_value=0.1, value=1.2, step=0.1)\
+        
+        st.markdown("### Вставки")
+        stone_sizes = list(STONE_PRICES_USD["Натуральні діаманти"].keys())
+        main_size = st.selectbox("Основний діамант — розмір", stone_sizes, index=0)
+        main_qty = st.number_input("Основний діамант — к-сть", min_value=0, value=0, step=1)
 
         st.markdown("### Додатково")
         discount_percent = st.selectbox("Знижка, %", [0, 7, 10, 15, 20])
