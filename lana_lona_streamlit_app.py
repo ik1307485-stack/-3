@@ -1,4 +1,4 @@
-import tkinter as tk
+import streamlit as st
 from tkinter import ttk, messagebox
 import requests
 
