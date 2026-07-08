@@ -115,11 +115,9 @@ def calculate_wedding_rings(data):
     width_1 = data["width_1"]
     thickness_1 = data["thickness_1"]
 
-    use_second_ring = data.get("use_second_ring", True)
-
-    size_2 = data["size_2"] if use_second_ring else 0
-    width_2 = data["width_2"] if use_second_ring else 0
-    thickness_2 = data["thickness_2"] if use_second_ring else 0
+    size_2 = data["size_2"]
+    width_2 = data["width_2"]
+    thickness_2 = data["thickness_2"]
 
     design = data["design"]
     coating_usd = data["coating_usd"]
@@ -136,7 +134,7 @@ def calculate_wedding_rings(data):
     manual_weight_2 = data.get("manual_weight_2", 0)
 
     auto_weight_1 = calc_weight(size_1, width_1, thickness_1)
-    auto_weight_2 = calc_weight(size_2, width_2, thickness_2) if use_second_ring else 0
+    auto_weight_2 = calc_weight(size_2, width_2, thickness_2)
 
     if manual_weight_1 > 0:
         weight_1 = manual_weight_1
@@ -145,16 +143,12 @@ def calculate_wedding_rings(data):
         weight_1 = auto_weight_1
         weight_note_1 = "Вага виробу 1 розрахована автоматично"
 
-    if use_second_ring:
-        if manual_weight_2 > 0:
-            weight_2 = manual_weight_2
-            weight_note_2 = "Вага виробу 2 задана вручну"
-        else:
-            weight_2 = auto_weight_2
-            weight_note_2 = "Вага виробу 2 розрахована автоматично"
+    if manual_weight_2 > 0:
+        weight_2 = manual_weight_2
+        weight_note_2 = "Вага виробу 2 задана вручну"
     else:
-        weight_2 = 0
-        weight_note_2 = "Друга обручка не додана"
+        weight_2 = auto_weight_2
+        weight_note_2 = "Вага виробу 2 розрахована автоматично"
 
     total_weight = weight_1 + weight_2
 
@@ -194,20 +188,6 @@ def calculate_wedding_rings(data):
     if ring_stone_qty > 0:
         inserts_text = f"{ring_stone_size} - {ring_stone_qty} шт"
 
-    second_weight_text = ""
-    if use_second_ring:
-        second_weight_text = f"""
-{weight_note_2}:
-{weight_2:.2f} г
-"""
-
-    if use_second_ring:
-        client_sizes_text = f"Розміри: {size_1:g} та {size_2:g}"
-        client_width_text = f"Ширина: {width_1:g} мм та {width_2:g} мм"
-    else:
-        client_sizes_text = f"Розмір: {size_1:g}"
-        client_width_text = f"Ширина: {width_1:g} мм"
-
     technical_text = f"""Курс USD: {usd_rate:.2f} грн
 
 Тип виробу:
@@ -215,7 +195,10 @@ def calculate_wedding_rings(data):
 
 {weight_note_1}:
 {weight_1:.2f} г
-{second_weight_text}
+
+{weight_note_2}:
+{weight_2:.2f} г
+
 Загальна вага:
 {total_weight:.2f} г
 
@@ -254,8 +237,8 @@ def calculate_wedding_rings(data):
     client_text = f"""{title}
 
 Біле родоване золото 585 проби 💍
-{client_sizes_text}
-{client_width_text}
+Розміри: {size_1:g} та {size_2:g}
+Ширина: {width_1:g} мм та {width_2:g} мм
 Покриття: {coating_client}
 Середня вага виробу: {total_weight:.1f} г
 """
@@ -508,17 +491,10 @@ elif st.session_state.screen == "wedding":
         width_1 = st.number_input("Ширина 1, мм", min_value=0.1, value=5.0, step=0.1)
         thickness_1 = st.number_input("Товщина 1, мм", min_value=0.1, value=1.2, step=0.1)
 
-        use_second_ring = st.checkbox("Додати другу обручку", value=True)
-
-        if use_second_ring:
-            st.markdown("### Обручка 2")
-            size_2 = st.number_input("Розмір 2", min_value=1.0, value=19.0, step=0.5)
-            width_2 = st.number_input("Ширина 2, мм", min_value=0.1, value=5.0, step=0.1)
-            thickness_2 = st.number_input("Товщина 2, мм", min_value=0.1, value=1.2, step=0.1)
-        else:
-            size_2 = 0.0
-            width_2 = 0.0
-            thickness_2 = 0.0
+        st.markdown("### Обручка 2")
+        size_2 = st.number_input("Розмір 2", min_value=1.0, value=19.0, step=0.5)
+        width_2 = st.number_input("Ширина 2, мм", min_value=0.1, value=5.0, step=0.1)
+        thickness_2 = st.number_input("Товщина 2, мм", min_value=0.1, value=1.2, step=0.1)
 
         st.markdown("### Вставки каміння")
         stone_sizes = list(STONE_PRICES_USD["Натуральні діаманти"].keys())
@@ -526,7 +502,7 @@ elif st.session_state.screen == "wedding":
         ring_stone_enabled = st.checkbox("Додати діаманти в обручку")
         ring_stone_ring = st.selectbox(
             "В яку обручку додати",
-            [1, 2] if use_second_ring else [1],
+            [1, 2],
             disabled=not ring_stone_enabled,
         )
         ring_stone_size = st.selectbox(
@@ -553,7 +529,7 @@ elif st.session_state.screen == "wedding":
 
     with right:
         current_auto_weight_1 = calc_weight(size_1, width_1, thickness_1)
-        current_auto_weight_2 = calc_weight(size_2, width_2, thickness_2) if use_second_ring else 0.0
+        current_auto_weight_2 = calc_weight(size_2, width_2, thickness_2)
 
         if calculate_btn:
             st.session_state.wedding_manual_weight_1 = 0.0
@@ -561,7 +537,6 @@ elif st.session_state.screen == "wedding":
 
             technical_text, client_text = calculate_wedding_rings({
                 "design": design,
-                "use_second_ring": use_second_ring,
                 "size_1": size_1,
                 "width_1": width_1,
                 "thickness_1": thickness_1,
@@ -586,38 +561,27 @@ elif st.session_state.screen == "wedding":
         st.subheader("📊 Технічний розрахунок")
         st.caption("Тут менеджер може виправити вагу вручну і перерахувати ціну.")
 
-        if use_second_ring:
-            weight_col1, weight_col2 = st.columns(2)
+        weight_col1, weight_col2 = st.columns(2)
 
-            with weight_col1:
-                manual_weight_1_right = st.number_input(
-                    "Вага виробу 1, г",
-                    min_value=0.0,
-                    value=st.session_state.get("wedding_manual_weight_1", 0.0) or current_auto_weight_1,
-                    step=0.1,
-                    format="%.2f",
-                    key="wedding_weight_input_1",
-                )
-
-            with weight_col2:
-                manual_weight_2_right = st.number_input(
-                    "Вага виробу 2, г",
-                    min_value=0.0,
-                    value=st.session_state.get("wedding_manual_weight_2", 0.0) or current_auto_weight_2,
-                    step=0.1,
-                    format="%.2f",
-                    key="wedding_weight_input_2",
-                )
-        else:
+        with weight_col1:
             manual_weight_1_right = st.number_input(
-                "Вага виробу, г",
+                "Вага виробу 1, г",
                 min_value=0.0,
                 value=st.session_state.get("wedding_manual_weight_1", 0.0) or current_auto_weight_1,
                 step=0.1,
                 format="%.2f",
                 key="wedding_weight_input_1",
             )
-            manual_weight_2_right = 0.0
+
+        with weight_col2:
+            manual_weight_2_right = st.number_input(
+                "Вага виробу 2, г",
+                min_value=0.0,
+                value=st.session_state.get("wedding_manual_weight_2", 0.0) or current_auto_weight_2,
+                step=0.1,
+                format="%.2f",
+                key="wedding_weight_input_2",
+            )
 
         if st.button(
             "ПЕРЕРАХУВАТИ ПО ВАЗІ",
@@ -629,7 +593,6 @@ elif st.session_state.screen == "wedding":
 
             technical_text, client_text = calculate_wedding_rings({
                 "design": design,
-                "use_second_ring": use_second_ring,
                 "size_1": size_1,
                 "width_1": width_1,
                 "thickness_1": thickness_1,
