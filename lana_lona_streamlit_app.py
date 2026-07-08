@@ -112,17 +112,49 @@ def make_inserts_text(main_size, main_qty, small_size, small_qty):
 
 
 
-def get_font(size):
-    font_paths = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+
+def get_font(size, bold=False):
+    """Підбирає шрифт, який нормально підтримує українську мову."""
+    font_paths = []
+
+    # 1) Часто є на Streamlit Cloud / Linux
+    if bold:
+        font_paths += [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSerif-Bold.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSerif-Bold.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+        ]
+    else:
+        font_paths += [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSerif-Regular.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        ]
+
+    # 2) Якщо є matplotlib — він майже завжди має DejaVu Sans всередині
+    try:
+        import matplotlib.font_manager as fm
+        font_paths.append(fm.findfont("DejaVu Sans", fallback_to_default=True))
+    except Exception:
+        pass
+
+    # 3) Локальні назви
+    font_paths += [
+        "DejaVuSans.ttf",
         "DejaVuSerif.ttf",
+        "Arial.ttf",
     ]
-    for path in font_paths:
+
+    for font_path in font_paths:
         try:
-            return ImageFont.truetype(path, size)
+            return ImageFont.truetype(font_path, size)
         except Exception:
             continue
+
     return ImageFont.load_default()
 
 
@@ -132,14 +164,16 @@ def text_width(draw, text, font):
 
 
 def draw_center(draw, text, y, font, fill, canvas_width):
-    x = (canvas_width - text_width(draw, text, font)) / 2
+    bbox = draw.textbbox((0, 0), text, font=font)
+    x = (canvas_width - (bbox[2] - bbox[0])) / 2
     draw.text((x, y), text, font=font, fill=fill)
 
 
 def wrap_text(draw, text, font, max_width):
-    words = text.split()
+    words = str(text).split()
     lines = []
     current = ""
+
     for word in words:
         test = word if not current else current + " " + word
         if text_width(draw, test, font) <= max_width:
@@ -148,9 +182,35 @@ def wrap_text(draw, text, font, max_width):
             if current:
                 lines.append(current)
             current = word
+
     if current:
         lines.append(current)
+
     return lines
+
+
+def remove_light_background(img):
+    """Робить білий/світлий фон прозорим, щоб фото лягало на чорний фон."""
+    img = img.convert("RGBA")
+    pixels = img.load()
+    w, h = img.size
+
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = pixels[x, y]
+
+            # Білий або майже білий фон
+            if r > 225 and g > 225 and b > 225:
+                pixels[x, y] = (r, g, b, 0)
+            # Дуже світло-сірий фон
+            elif r > 210 and g > 210 and b > 210 and abs(r - g) < 18 and abs(g - b) < 18:
+                pixels[x, y] = (r, g, b, 0)
+
+    bbox = img.getbbox()
+    if bbox:
+        img = img.crop(bbox)
+
+    return img
 
 
 def generate_client_image(uploaded_image, poster_data):
@@ -163,44 +223,48 @@ def generate_client_image(uploaded_image, poster_data):
     muted = "#9c9c9c"
     line_color = "#b87345"
 
-    title_font = get_font(52)
-    subtitle_font = get_font(30)
-    label_font = get_font(22)
-    value_font = get_font(27)
-    price_label_font = get_font(30)
-    price_font = get_font(58)
-    brand_font = get_font(28)
+    title_font = get_font(50, bold=False)
+    subtitle_font = get_font(29, bold=False)
+    label_font = get_font(21, bold=False)
+    value_font = get_font(27, bold=False)
+    price_label_font = get_font(30, bold=False)
+    price_font = get_font(58, bold=False)
+    brand_font = get_font(28, bold=False)
 
     title = poster_data.get("title", "Індивідуальна модель обручок")
-    gold = poster_data.get("gold", "Біле родоване золото 585 проби 💍")
+    gold = poster_data.get("gold", "Біле родоване золото 585 проби")
     sizes = poster_data.get("sizes", "")
     widths = poster_data.get("widths", "")
     coating = poster_data.get("coating", "")
     weight = poster_data.get("weight", "")
     price = poster_data.get("price", "")
 
+    # Прибираємо emoji, бо частина серверних шрифтів показує їх квадратиками
+    title_clean = title.replace("⚜️", "").replace("💍", "").replace("💎", "").strip().upper()
+    gold_clean = gold.replace("💍", "").strip().upper()
+
     # Заголовок
-    title_clean = title.replace("⚜️", "").strip().upper()
-    title_lines = wrap_text(draw, title_clean, title_font, 920)
+    title_lines = wrap_text(draw, title_clean, title_font, 950)
     y = 65
     for line in title_lines[:2]:
         draw_center(draw, line, y, title_font, copper, W)
-        y += 65
+        y += 64
 
-    gold_short = gold.replace("💍", "").strip().upper()
-    draw_center(draw, gold_short + " 💍", 205, subtitle_font, white, W)
+    draw_center(draw, gold_clean, 205, subtitle_font, white, W)
 
-    # Фото виробу
-    img = Image.open(uploaded_image).convert("RGB")
-    img.thumbnail((800, 650))
+    # Фото виробу: прибираємо білий фон і кладемо на чорний
+    img = Image.open(uploaded_image)
+    img = remove_light_background(img)
+    img.thumbnail((820, 630), Image.LANCZOS)
+
     img_x = (W - img.width) // 2
     img_y = 310
-    bg.paste(img, (img_x, img_y))
+    bg.paste(img, (img_x, img_y), img)
 
     # Характеристики
     y_top = 965
     cols = [
-        ("ЗОЛОТО", gold.replace(" проби 💍", "").replace(" проби", "")),
+        ("ЗОЛОТО", gold.replace("Біле родоване ", "").replace(" проби 💍", "").replace(" проби", "")),
         ("РОЗМІРИ", sizes.replace("Розміри: ", "").replace("Розмір: ", "")),
         ("ШИРИНА", widths.replace("Ширина: ", "")),
         ("ПОКРИТТЯ", coating.replace("Покриття: ", "")),
@@ -210,10 +274,11 @@ def generate_client_image(uploaded_image, poster_data):
 
     for i, (label, value) in enumerate(cols):
         x_center = col_w * i + col_w / 2
+
         label_w = text_width(draw, label, label_font)
         draw.text((x_center - label_w / 2, y_top), label, font=label_font, fill=copper)
 
-        value_lines = wrap_text(draw, value, value_font, col_w - 20)
+        value_lines = wrap_text(draw, value, value_font, col_w - 24)
         yy = y_top + 45
         for line in value_lines[:2]:
             value_w = text_width(draw, line, value_font)
@@ -227,13 +292,14 @@ def generate_client_image(uploaded_image, poster_data):
     # Лінія та ціна
     draw.line((110, 1125, 970, 1125), fill=line_color, width=2)
     draw_center(draw, "СЕРЕДНЯ ВАРТІСТЬ ВИРОБУ:", 1170, price_label_font, copper, W)
-    draw_center(draw, f"{price} грн 💎", 1230, price_font, copper, W)
+    draw_center(draw, f"{price} грн", 1230, price_font, copper, W)
     draw_center(draw, "LANA & LONA", 1310, brand_font, muted, W)
 
     buffer = io.BytesIO()
     bg.save(buffer, format="PNG")
     buffer.seek(0)
     return buffer
+
 
 def calculate_wedding_rings(data):
     usd_rate = get_usd_rate()
