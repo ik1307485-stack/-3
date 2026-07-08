@@ -1,4 +1,5 @@
-import streamlit as st
+import tkinter as tk
+from tkinter import ttk, messagebox
 import requests
 
 GOLD_PRICE = 4600
@@ -49,20 +50,21 @@ def get_usd_rate():
     try:
         url = "https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json"
         data = requests.get(url, timeout=5).json()
+
         for item in data:
             if item.get("cc") == "USD":
                 return float(item.get("rate"))
     except Exception:
         pass
-    return 44.5
+
+    return 42.0
+
+
+def to_float(value):
+    return float(value.replace(",", ".").strip())
 
 
 def money(value):
-    return f"{value:,.0f}".replace(",", " ")
-
-
-def money100(value):
-    value = round(value / 100) * 100
     return f"{value:,.0f}".replace(",", " ")
 
 
@@ -73,7 +75,7 @@ def calc_weight(size, width, thickness):
     return length * w * t * K
 
 
-def get_work_price(product_type, design=None):
+def get_work_price(product_type, design):
     if product_type == "Каблучка":
         return WORK_RING
     if design == "Вишиванка":
@@ -81,106 +83,137 @@ def get_work_price(product_type, design=None):
     return WORK_INDIVIDUAL
 
 
-def get_stone_cost_by_type(stone_type, stone_size, qty, usd_rate):
+def get_stone_cost(type_box, size_box, qty_entry, usd_rate):
+    stone_type = type_box.get()
+    stone_size = size_box.get()
+
+    try:
+        qty = int(qty_entry.get())
+    except:
+        qty = 0
+
     if qty <= 0:
-        return 0, 0
+        return 0, 0, "не додано"
+
     price_usd = STONE_PRICES_USD[stone_type][stone_size]
     total_usd = price_usd * qty
     total_uah = total_usd * usd_rate
-    return total_usd, total_uah
+
+    text = f"{stone_type}, {stone_size}, {qty} шт — {total_usd}$"
+
+    return total_usd, total_uah, text
 
 
-def make_inserts_text(main_size, main_qty, small_size, small_qty):
-    parts = []
-    if main_qty > 0:
-        parts.append(f"{main_size} - {main_qty} шт")
-    if small_qty > 0:
-        parts.append(f"{small_size} - {small_qty} шт")
-    return "; ".join(parts) if parts else "не додано"
+def update_mode():
+    mode = product_type_var.get()
 
-
-def calculate_wedding_rings(data):
-    usd_rate = get_usd_rate()
-
-    size_1 = data["size_1"]
-    width_1 = data["width_1"]
-    thickness_1 = data["thickness_1"]
-
-    size_2 = data["size_2"]
-    width_2 = data["width_2"]
-    thickness_2 = data["thickness_2"]
-
-    design = data["design"]
-    coating_usd = data["coating_usd"]
-    coating_uah = coating_usd * usd_rate
-    engraving = data["engraving"]
-    delivery = data["delivery"]
-    discount_percent = data["discount_percent"]
-
-    ring_stone_enabled = data["ring_stone_enabled"]
-    ring_stone_ring = data["ring_stone_ring"]
-    ring_stone_size = data["ring_stone_size"]
-    ring_stone_qty = data["ring_stone_qty"] if ring_stone_enabled else 0
-
-    manual_weight_1 = data.get("manual_weight_1", 0)
-    manual_weight_2 = data.get("manual_weight_2", 0)
-
-    auto_weight_1 = calc_weight(size_1, width_1, thickness_1)
-    auto_weight_2 = calc_weight(size_2, width_2, thickness_2)
-
-    if manual_weight_1 > 0:
-        weight_1 = manual_weight_1
-        weight_note_1 = "Вага виробу 1 задана вручну"
+    if mode == "Пара обручок":
+        pair_frame.pack(fill="x", padx=10, pady=5)
+        ring_frame.pack_forget()
+        stones_frame.pack_forget()
     else:
-        weight_1 = auto_weight_1
-        weight_note_1 = "Вага виробу 1 розрахована автоматично"
+        pair_frame.pack_forget()
+        ring_frame.pack(fill="x", padx=10, pady=5)
+        stones_frame.pack(fill="x", padx=10, pady=5)
 
-    if manual_weight_2 > 0:
-        weight_2 = manual_weight_2
-        weight_note_2 = "Вага виробу 2 задана вручну"
-    else:
-        weight_2 = auto_weight_2
-        weight_note_2 = "Вага виробу 2 розрахована автоматично"
 
-    total_weight = weight_1 + weight_2
+def calculate():
+    try:
+        usd_rate = get_usd_rate()
 
-    work_per_gram = get_work_price("Пара обручок", design)
-    work_cost = total_weight * work_per_gram
-    discount = work_cost * (discount_percent / 100)
-    work_after_discount = work_cost - discount
-    gold_cost = total_weight * GOLD_PRICE
+        product_type = product_type_var.get()
+        design = design_var.get()
 
-    base_total_without_stones = gold_cost + work_after_discount + PACKAGING + engraving + coating_uah + delivery
+        if product_type == "Пара обручок":
+            size_1 = to_float(entry_size_1.get())
+            width_1 = to_float(entry_width_1.get())
+            thickness_1 = to_float(entry_thickness_1.get())
 
-    # У технічному розрахунку базово показуємо натуральні діаманти
-    stones_usd, stones_uah = get_stone_cost_by_type(
-        "Натуральні діаманти",
-        ring_stone_size,
-        ring_stone_qty,
-        usd_rate,
-    )
-    total = base_total_without_stones + stones_uah
+            size_2 = to_float(entry_size_2.get())
+            width_2 = to_float(entry_width_2.get())
+            thickness_2 = to_float(entry_thickness_2.get())
 
-    title = (
-        "Індивідуальна модель обручок «Вишиванка» ⚜️"
-        if design == "Вишиванка"
-        else "Індивідуальна модель обручок ⚜️"
-    )
-    coating_client = "Без покриття" if coating_usd == 0 else "Родій"
+            weight_1 = calc_weight(size_1, width_1, thickness_1)
+            weight_2 = calc_weight(size_2, width_2, thickness_2)
+            total_weight = weight_1 + weight_2
 
-    inserts_text = "не додано"
-    if ring_stone_qty > 0:
-        inserts_text = f"{ring_stone_size} - {ring_stone_qty} шт"
+            width_text = f"{width_1:g} мм та {width_2:g} мм"
 
-    technical_text = f"""Курс USD: {usd_rate:.2f} грн
+            stones_usd = 0
+            stones_uah = 0
+            main_stone_text = "не додано"
+            small_stone_text = "не додано"
+
+        else:
+            size = to_float(entry_ring_size.get())
+            width = to_float(entry_ring_width.get())
+            thickness = to_float(entry_ring_thickness.get())
+
+            weight_1 = calc_weight(size, width, thickness)
+            weight_2 = 0
+            total_weight = weight_1
+
+            width_text = f"{width:g} мм"
+
+            main_usd, main_uah, main_stone_text = get_stone_cost(
+                main_stone_type_box,
+                main_stone_size_box,
+                main_stone_qty_entry,
+                usd_rate
+            )
+
+            small_usd, small_uah, small_stone_text = get_stone_cost(
+                small_stone_type_box,
+                small_stone_size_box,
+                small_stone_qty_entry,
+                usd_rate
+            )
+
+            stones_usd = main_usd + small_usd
+            stones_uah = main_uah + small_uah
+
+        delivery = to_float(entry_delivery.get()) if entry_delivery.get().strip() else 0
+
+        coating_usd = float(coating_var.get())
+        coating_uah = coating_usd * usd_rate
+
+        engraving = int(engraving_var.get())
+
+        work_per_gram = get_work_price(product_type, design)
+        work_cost = total_weight * work_per_gram
+
+        discount_percent = int(discount_var.get())
+        discount = work_cost * (discount_percent / 100)
+        work_after_discount = work_cost - discount
+
+        gold_cost = total_weight * GOLD_PRICE
+
+        total = (
+            gold_cost
+            + work_after_discount
+            + PACKAGING
+            + engraving
+            + coating_uah
+            + delivery
+            + stones_uah
+        )
+
+        if product_type == "Каблучка":
+            title = "Індивідуальна каблучка"
+        else:
+            title = f"Індивідуальна модель обручок «{design}»"
+
+        coating_client = "Без покриття" if coating_usd == 0 else "Родій"
+
+        technical_text = f"""Курс USD: {usd_rate:.2f} грн
 
 Тип виробу:
-Пара обручок
+{product_type}
 
-{weight_note_1}:
+Вага виробу 1:
 {weight_1:.2f} г
 
-{weight_note_2}:
+Вага виробу 2:
 {weight_2:.2f} г
 
 Загальна вага:
@@ -218,396 +251,307 @@ def calculate_wedding_rings(data):
 {money(total)} грн
 """
 
-    client_text = f"""{title}
+        client_text = f"""{title} ⚜️
 
 Біле родоване золото 585 проби 💍
-Розміри: {size_1:g} та {size_2:g}
-Ширина: {width_1:g} мм та {width_2:g} мм
+Ширина: {width_text}
 Покриття: {coating_client}
-Середня вага виробу: {total_weight:.1f} г
+Середня вага: {total_weight:.2f} г
 """
 
-    if ring_stone_qty > 0:
-        variant_totals = {}
-        for stone_type in STONE_PRICES_USD.keys():
-            _, stone_uah_variant = get_stone_cost_by_type(
-                stone_type,
-                ring_stone_size,
-                ring_stone_qty,
-                usd_rate,
-            )
-            variant_totals[stone_type] = base_total_without_stones + stone_uah_variant
-
-        client_text += f"""Вставки: {inserts_text}
-
-Середня вартість виробу:
-• з натуральними діамантами:
-{money100(variant_totals["Натуральні діаманти"])} грн 💎
-• з лабораторними діамантами:
-{money100(variant_totals["Лабораторні діаманти"])} грн 💎
-• з муасанітами:
-{money100(variant_totals["Муасаніти"])} грн 💎
+        if product_type == "Каблучка":
+            client_text += f"""
+Основний діамант: {main_stone_text}
+Малі діаманти: {small_stone_text}
 """
-    else:
+
         client_text += f"""
-Середня вартість виробу:
-{money100(total)} грн 💎
+Середня вартість:
+{money(total)} грн 💎
 """
 
-    return technical_text, client_text
+        technical_output.delete("1.0", tk.END)
+        technical_output.insert(tk.END, technical_text)
 
-def calculate_ring(data):
-    usd_rate = get_usd_rate()
+        client_output.delete("1.0", tk.END)
+        client_output.insert(tk.END, client_text)
 
-    size = data["size"]
-    width = data["width"]
-    thickness = data["thickness"]
-    coating_usd = data["coating_usd"]
-    coating_uah = coating_usd * usd_rate
-    engraving = data["engraving"]
-    delivery = data["delivery"]
-    discount_percent = data["discount_percent"]
-    main_size = data["main_size"]
-    main_qty = data["main_qty"]
-    small_size = data["small_size"]
-    small_qty = data["small_qty"]
-    manual_weight = data.get("manual_weight", 0)
+    except Exception as e:
+        messagebox.showerror("Помилка", str(e))
 
-    auto_weight = calc_weight(size, width, thickness)
 
-    if manual_weight > 0:
-        total_weight = manual_weight
-        weight_note = "Вага задана вручну"
+def copy_client_text():
+    text = client_output.get("1.0", tk.END)
+    root.clipboard_clear()
+    root.clipboard_append(text)
+    messagebox.showinfo("Готово", "Текст для клієнта скопійовано")
+
+
+
+def build_calculator_interface(default_product_type):
+    global pair_frame, ring_frame, stones_frame, product_type_var, design_var, entry_size_1, entry_width_1, entry_thickness_1, entry_size_2, entry_width_2, entry_thickness_2, entry_ring_size, entry_ring_width, entry_ring_thickness, main_stone_type_var, main_stone_type_box, main_stone_size_var, main_stone_size_box, main_stone_qty_entry, small_stone_type_var, small_stone_type_box, small_stone_size_var, small_stone_size_box, small_stone_qty_entry, discount_var, coating_var, engraving_var, entry_delivery, technical_output, client_output
+
+    root.geometry("1050x850")
+    if default_product_type == "Пара обручок":
+        root.title("Калькулятор обручок")
     else:
-        total_weight = auto_weight
-        weight_note = "Вага розрахована автоматично"
+        root.title("Калькулятор каблучки")
 
-    weight_1 = total_weight
+    tk.Button(
+        root,
+        text="← Назад",
+        command=show_start_screen
+    ).pack(anchor="w", padx=10, pady=10)
 
-    work_per_gram = get_work_price("Каблучка")
-    work_cost = total_weight * work_per_gram
-    discount = work_cost * (discount_percent / 100)
-    work_after_discount = work_cost - discount
-    gold_cost = total_weight * GOLD_PRICE
+    main_frame = tk.Frame(root)
+    main_frame.pack(fill="both", expand=True, padx=15, pady=15)
 
-    base_total_without_stones = gold_cost + work_after_discount + PACKAGING + engraving + coating_uah + delivery
+    left_frame = tk.Frame(main_frame)
+    left_frame.pack(side="left", fill="y", padx=10)
 
-    # У технічному розрахунку базово показуємо натуральні діаманти
-    main_usd, main_uah = get_stone_cost_by_type("Натуральні діаманти", main_size, main_qty, usd_rate)
-    small_usd, small_uah = get_stone_cost_by_type("Натуральні діаманти", small_size, small_qty, usd_rate)
-    stones_usd = main_usd + small_usd
-    stones_uah = main_uah + small_uah
-    total = base_total_without_stones + stones_uah
+    right_frame = tk.Frame(main_frame)
+    right_frame.pack(side="right", fill="both", expand=True, padx=10)
 
-    coating_client = "Без покриття" if coating_usd == 0 else "Родій"
-    inserts_text = make_inserts_text(main_size, main_qty, small_size, small_qty)
+    tk.Label(left_frame, text="Тип прорахунку", font=("Arial", 12, "bold")).pack(anchor="w")
 
-    technical_text = f"""Курс USD: {usd_rate:.2f} грн
+    product_type_var = tk.StringVar(value=default_product_type)
 
-Тип виробу:
-Каблучка
+    type_box = ttk.Combobox(
+        left_frame,
+        textvariable=product_type_var,
+        state="readonly",
+        values=["Пара обручок", "Каблучка"]
+    )
+    type_box.pack(fill="x", pady=5)
+    type_box.bind("<<ComboboxSelected>>", lambda e: update_mode())
 
-{weight_note}:
-{weight_1:.2f} г
+    tk.Label(left_frame, text="Дизайн", font=("Arial", 12, "bold")).pack(anchor="w", pady=(10, 0))
 
-Вага виробу 2:
-0.00 г
+    design_var = tk.StringVar(value="Вишиванка")
 
-Загальна вага:
-{total_weight:.2f} г
+    design_box = ttk.Combobox(
+        left_frame,
+        textvariable=design_var,
+        state="readonly",
+        values=["Вишиванка", "Індивідуальний"]
+    )
+    design_box.pack(fill="x", pady=5)
 
-Золото:
-{money(gold_cost)} грн
+    pair_frame = tk.LabelFrame(left_frame, text="Пара обручок", padx=10, pady=10)
 
-Робота:
-{money(work_cost)} грн
+    tk.Label(pair_frame, text="Обручка 1").grid(row=0, column=0, columnspan=2)
 
-Знижка:
--{money(discount)} грн
+    tk.Label(pair_frame, text="Розмір").grid(row=1, column=0)
+    entry_size_1 = tk.Entry(pair_frame)
+    entry_size_1.insert(0, "19")
+    entry_size_1.grid(row=1, column=1)
 
-Робота після знижки:
-{money(work_after_discount)} грн
+    tk.Label(pair_frame, text="Ширина").grid(row=2, column=0)
+    entry_width_1 = tk.Entry(pair_frame)
+    entry_width_1.insert(0, "4")
+    entry_width_1.grid(row=2, column=1)
 
-Упаковка:
-{money(PACKAGING)} грн
+    tk.Label(pair_frame, text="Товщина").grid(row=3, column=0)
+    entry_thickness_1 = tk.Entry(pair_frame)
+    entry_thickness_1.insert(0, "1")
+    entry_thickness_1.grid(row=3, column=1)
 
-Гравіювання:
-{money(engraving)} грн
+    tk.Label(pair_frame, text="Обручка 2").grid(row=4, column=0, columnspan=2, pady=(10, 0))
 
-Покриття:
-{money(coating_uah)} грн
+    tk.Label(pair_frame, text="Розмір").grid(row=5, column=0)
+    entry_size_2 = tk.Entry(pair_frame)
+    entry_size_2.insert(0, "16")
+    entry_size_2.grid(row=5, column=1)
 
-Діаманти / каміння:
-{money(stones_uah)} грн ({stones_usd}$)
+    tk.Label(pair_frame, text="Ширина").grid(row=6, column=0)
+    entry_width_2 = tk.Entry(pair_frame)
+    entry_width_2.insert(0, "4")
+    entry_width_2.grid(row=6, column=1)
 
-Доставка:
-{money(delivery)} грн
+    tk.Label(pair_frame, text="Товщина").grid(row=7, column=0)
+    entry_thickness_2 = tk.Entry(pair_frame)
+    entry_thickness_2.insert(0, "1")
+    entry_thickness_2.grid(row=7, column=1)
 
-=====================
-ДО СПЛАТИ:
-{money(total)} грн
-"""
+    ring_frame = tk.LabelFrame(left_frame, text="Каблучка", padx=10, pady=10)
 
-    variant_totals = {}
-    for stone_type in STONE_PRICES_USD.keys():
-        main_usd_variant, main_uah_variant = get_stone_cost_by_type(stone_type, main_size, main_qty, usd_rate)
-        small_usd_variant, small_uah_variant = get_stone_cost_by_type(stone_type, small_size, small_qty, usd_rate)
-        variant_totals[stone_type] = base_total_without_stones + main_uah_variant + small_uah_variant
+    tk.Label(ring_frame, text="Розмір").grid(row=0, column=0)
+    entry_ring_size = tk.Entry(ring_frame)
+    entry_ring_size.insert(0, "16")
+    entry_ring_size.grid(row=0, column=1)
 
-    client_text = f"""Каблучка індивідуального дизайну ⚜️
+    tk.Label(ring_frame, text="Ширина").grid(row=1, column=0)
+    entry_ring_width = tk.Entry(ring_frame)
+    entry_ring_width.insert(0, "4")
+    entry_ring_width.grid(row=1, column=1)
 
-Біле родоване золото 585 проби 💍
-Розмір: {size:g}
-Ширина: {width:g} мм
-Покриття: {coating_client}
-Середня вага виробу: {total_weight:.1f} г
-Вставки: {inserts_text}
+    tk.Label(ring_frame, text="Товщина").grid(row=2, column=0)
+    entry_ring_thickness = tk.Entry(ring_frame)
+    entry_ring_thickness.insert(0, "1.8")
+    entry_ring_thickness.grid(row=2, column=1)
 
-Середня вартість виробу:
-• з натуральними діамантами:
-{money100(variant_totals["Натуральні діаманти"])} грн 💎
-• з лабораторними діамантами:
-{money100(variant_totals["Лабораторні діаманти"])} грн 💎
-• з муасанітами:
-{money100(variant_totals["Муасаніти"])} грн 💎
-"""
+    stones_frame = tk.LabelFrame(left_frame, text="Діаманти / каміння", padx=10, pady=10)
 
-    return technical_text, client_text
+    tk.Label(stones_frame, text="Основний діамант").grid(row=0, column=0, columnspan=2)
+
+    main_stone_type_var = tk.StringVar(value="Натуральні діаманти")
+    main_stone_type_box = ttk.Combobox(
+        stones_frame,
+        textvariable=main_stone_type_var,
+        state="readonly",
+        values=list(STONE_PRICES_USD.keys())
+    )
+    main_stone_type_box.grid(row=1, column=0, columnspan=2)
+
+    main_stone_size_var = tk.StringVar(value="1 мм")
+    main_stone_size_box = ttk.Combobox(
+        stones_frame,
+        textvariable=main_stone_size_var,
+        state="readonly",
+        values=list(STONE_PRICES_USD["Натуральні діаманти"].keys())
+    )
+    main_stone_size_box.grid(row=2, column=0, columnspan=2)
+
+    tk.Label(stones_frame, text="К-сть").grid(row=3, column=0)
+    main_stone_qty_entry = tk.Entry(stones_frame)
+    main_stone_qty_entry.insert(0, "0")
+    main_stone_qty_entry.grid(row=3, column=1)
+
+    tk.Label(stones_frame, text="Малі діаманти").grid(row=4, column=0, columnspan=2, pady=(10, 0))
+
+    small_stone_type_var = tk.StringVar(value="Натуральні діаманти")
+    small_stone_type_box = ttk.Combobox(
+        stones_frame,
+        textvariable=small_stone_type_var,
+        state="readonly",
+        values=list(STONE_PRICES_USD.keys())
+    )
+    small_stone_type_box.grid(row=5, column=0, columnspan=2)
+
+    small_stone_size_var = tk.StringVar(value="1 мм")
+    small_stone_size_box = ttk.Combobox(
+        stones_frame,
+        textvariable=small_stone_size_var,
+        state="readonly",
+        values=list(STONE_PRICES_USD["Натуральні діаманти"].keys())
+    )
+    small_stone_size_box.grid(row=6, column=0, columnspan=2)
+
+    tk.Label(stones_frame, text="К-сть").grid(row=7, column=0)
+    small_stone_qty_entry = tk.Entry(stones_frame)
+    small_stone_qty_entry.insert(0, "0")
+    small_stone_qty_entry.grid(row=7, column=1)
+
+    tk.Label(left_frame, text="Знижка").pack(anchor="w", pady=(10, 0))
+    discount_var = tk.StringVar(value="0")
+    discount_box = ttk.Combobox(
+        left_frame,
+        textvariable=discount_var,
+        state="readonly",
+        values=["0", "7", "10", "15", "20"]
+    )
+    discount_box.pack(fill="x")
+
+    tk.Label(left_frame, text="Покриття").pack(anchor="w", pady=(10, 0))
+    coating_var = tk.StringVar(value="0")
+    coating_box = ttk.Combobox(
+        left_frame,
+        textvariable=coating_var,
+        state="readonly",
+        values=["0", "50", "100", "200"]
+    )
+    coating_box.pack(fill="x")
+
+    tk.Label(left_frame, text="Гравіювання").pack(anchor="w", pady=(10, 0))
+    engraving_var = tk.StringVar(value="0")
+    engraving_box = ttk.Combobox(
+        left_frame,
+        textvariable=engraving_var,
+        state="readonly",
+        values=["0", "800", "1500"]
+    )
+    engraving_box.pack(fill="x")
+
+    tk.Label(left_frame, text="Доставка, грн").pack(anchor="w", pady=(10, 0))
+    entry_delivery = tk.Entry(left_frame)
+    entry_delivery.insert(0, "0")
+    entry_delivery.pack(fill="x")
+
+    tk.Button(
+        left_frame,
+        text="РОЗРАХУВАТИ",
+        command=calculate,
+        bg="#d4af37",
+        font=("Arial", 12, "bold")
+    ).pack(fill="x", pady=15)
+
+    tk.Button(
+        left_frame,
+        text="СКОПІЮВАТИ ТЕКСТ КЛІЄНТУ",
+        command=copy_client_text
+    ).pack(fill="x")
+
+    tk.Label(right_frame, text="📊 Технічний розрахунок", font=("Arial", 13, "bold")).pack(anchor="w")
+
+    technical_output = tk.Text(right_frame, height=20, width=70, font=("Arial", 11))
+    technical_output.pack(fill="both", expand=True, pady=5)
+
+    tk.Label(right_frame, text="📋 Текст для клієнта", font=("Arial", 13, "bold")).pack(anchor="w", pady=(10, 0))
+
+    client_output = tk.Text(right_frame, height=12, width=70, font=("Arial", 11))
+    client_output.pack(fill="both", expand=True, pady=5)
+
+    update_mode()
 
 
-st.set_page_config(page_title="Калькулятор Lana & Lona", layout="wide")
+def show_start_screen():
+    for widget in root.winfo_children():
+        widget.destroy()
 
-if "screen" not in st.session_state:
-    st.session_state.screen = "start"
+    root.geometry("500x300")
+    root.title("Вибір калькулятора")
 
-st.markdown(
-    """
-    <style>
-    .main-title {text-align:center; font-size:34px; font-weight:700; margin-top:40px;}
-    .gold-button button {background-color:#d4af37 !important; color:black !important; font-weight:700 !important;}
-    textarea {font-size:16px !important;}
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+    tk.Label(
+        root,
+        text="Що потрібно прорахувати?",
+        font=("Arial", 18, "bold")
+    ).pack(pady=40)
+
+    tk.Button(
+        root,
+        text="Обручки",
+        font=("Arial", 16, "bold"),
+        width=20,
+        height=2,
+        bg="#d4af37",
+        command=show_wedding_rings_interface
+    ).pack(pady=10)
+
+    tk.Button(
+        root,
+        text="Каблучка",
+        font=("Arial", 16, "bold"),
+        width=20,
+        height=2,
+        bg="#d4af37",
+        command=show_ring_interface
+    ).pack(pady=10)
 
 
-def go_start():
-    st.session_state.screen = "start"
+def show_wedding_rings_interface():
+    for widget in root.winfo_children():
+        widget.destroy()
+
+    build_calculator_interface("Пара обручок")
 
 
-def go_wedding():
-    st.session_state.screen = "wedding"
+def show_ring_interface():
+    for widget in root.winfo_children():
+        widget.destroy()
+
+    build_calculator_interface("Каблучка")
 
 
-def go_ring():
-    st.session_state.screen = "ring"
-
-
-if st.session_state.screen == "start":
-    st.markdown('<div class="main-title">Що потрібно прорахувати?</div>', unsafe_allow_html=True)
-    st.write("")
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
-        st.button("Обручки", use_container_width=True, on_click=go_wedding)
-        st.button("Каблучка", use_container_width=True, on_click=go_ring)
-
-elif st.session_state.screen == "wedding":
-    st.button("← Назад", on_click=go_start)
-    st.title("Калькулятор обручок")
-
-    left, right = st.columns([1, 1.4])
-
-    with left:
-        st.subheader("Дані для прорахунку")
-        design = st.selectbox("Дизайн", ["Вишиванка", "Індивідуальний"])
-
-        st.markdown("### Обручка 1")
-        size_1 = st.number_input("Розмір 1", min_value=1.0, value=16.0, step=0.5)
-        width_1 = st.number_input("Ширина 1, мм", min_value=0.1, value=5.0, step=0.1)
-        thickness_1 = st.number_input("Товщина 1, мм", min_value=0.1, value=1.2, step=0.1)
-        st.markdown("### Обручка 2")
-        size_2 = st.number_input("Розмір 2", min_value=1.0, value=19.0, step=0.5)
-        width_2 = st.number_input("Ширина 2, мм", min_value=0.1, value=5.0, step=0.1)
-        thickness_2 = st.number_input("Товщина 2, мм", min_value=0.1, value=1.2, step=0.1)
-        st.markdown("### Вставки каміння")
-        stone_sizes = list(STONE_PRICES_USD["Натуральні діаманти"].keys())
-        ring_stone_enabled = st.checkbox("Додати діаманти в обручку")
-        ring_stone_ring = st.selectbox("В яку обручку додати", [1, 2], disabled=not ring_stone_enabled)
-        ring_stone_size = st.selectbox("Розмір діаманта", stone_sizes, index=1, disabled=not ring_stone_enabled)
-        ring_stone_qty = st.number_input("Кількість діамантів", min_value=0, value=0, step=1, disabled=not ring_stone_enabled)
-
-        st.markdown("### Додатково")
-        discount_percent = st.selectbox("Знижка, %", [0, 7, 10, 15, 20])
-        coating_usd = st.selectbox("Покриття, $", [0, 50, 100, 200])
-        engraving = st.selectbox("Гравіювання, грн", [0, 800, 1500])
-        delivery = st.number_input("Доставка, грн", min_value=0.0, value=0.0, step=100.0)
-
-        calculate_btn = st.button("РОЗРАХУВАТИ", use_container_width=True)
-
-    with right:
-        current_auto_weight_1 = calc_weight(size_1, width_1, thickness_1)
-        current_auto_weight_2 = calc_weight(size_2, width_2, thickness_2)
-
-        if calculate_btn:
-            st.session_state.wedding_manual_weight_1 = 0.0
-            st.session_state.wedding_manual_weight_2 = 0.0
-            technical_text, client_text = calculate_wedding_rings({
-                "design": design,
-                "size_1": size_1,
-                "width_1": width_1,
-                "thickness_1": thickness_1,
-                "manual_weight_1": 0.0,
-                "size_2": size_2,
-                "width_2": width_2,
-                "thickness_2": thickness_2,
-                "manual_weight_2": 0.0,
-                "discount_percent": discount_percent,
-                "coating_usd": coating_usd,
-                "engraving": engraving,
-                "delivery": delivery,
-                "ring_stone_enabled": ring_stone_enabled,
-                "ring_stone_ring": ring_stone_ring,
-                "ring_stone_size": ring_stone_size,
-                "ring_stone_qty": ring_stone_qty,
-            })
-            st.session_state.technical_text = technical_text
-            st.session_state.client_text = client_text
-
-        st.subheader("📊 Технічний розрахунок")
-        st.caption("Тут менеджер може виправити вагу вручну і перерахувати ціну.")
-        weight_col1, weight_col2 = st.columns(2)
-        with weight_col1:
-            manual_weight_1_right = st.number_input(
-                "Вага виробу 1, г",
-                min_value=0.0,
-                value=st.session_state.get("wedding_manual_weight_1", 0.0) or current_auto_weight_1,
-                step=0.1,
-                format="%.2f",
-                key="wedding_weight_input_1",
-            )
-        with weight_col2:
-            manual_weight_2_right = st.number_input(
-                "Вага виробу 2, г",
-                min_value=0.0,
-                value=st.session_state.get("wedding_manual_weight_2", 0.0) or current_auto_weight_2,
-                step=0.1,
-                format="%.2f",
-                key="wedding_weight_input_2",
-            )
-
-        if st.button("ПЕРЕРАХУВАТИ ПО ВАГІ", use_container_width=True, key="recalculate_wedding_weight"):
-            st.session_state.wedding_manual_weight_1 = manual_weight_1_right
-            st.session_state.wedding_manual_weight_2 = manual_weight_2_right
-            technical_text, client_text = calculate_wedding_rings({
-                "design": design,
-                "size_1": size_1,
-                "width_1": width_1,
-                "thickness_1": thickness_1,
-                "manual_weight_1": manual_weight_1_right,
-                "size_2": size_2,
-                "width_2": width_2,
-                "thickness_2": thickness_2,
-                "manual_weight_2": manual_weight_2_right,
-                "discount_percent": discount_percent,
-                "coating_usd": coating_usd,
-                "engraving": engraving,
-                "delivery": delivery,
-                "ring_stone_enabled": ring_stone_enabled,
-                "ring_stone_ring": ring_stone_ring,
-                "ring_stone_size": ring_stone_size,
-                "ring_stone_qty": ring_stone_qty,
-            })
-            st.session_state.technical_text = technical_text
-            st.session_state.client_text = client_text
-
-        st.text_area("Технічний текст", value=st.session_state.get("technical_text", ""), height=420)
-
-        st.subheader("📋 Текст для клієнта")
-        st.text_area("Скопіюй цей текст клієнту", value=st.session_state.get("client_text", ""), height=300)
-
-elif st.session_state.screen == "ring":
-    st.button("← Назад", on_click=go_start)
-    st.title("Калькулятор каблучки")
-
-    left, right = st.columns([1, 1.4])
-
-    with left:
-        st.subheader("Дані для прорахунку")
-        st.info("Для каблучки робота завжди рахується по 6100 грн/г. Дизайн тут не вибирається.")
-
-        size = st.number_input("Розмір", min_value=1.0, value=16.0, step=0.5)
-        width = st.number_input("Ширина, мм", min_value=0.1, value=2.5, step=0.1)
-        thickness = st.number_input("Товщина, мм", min_value=0.1, value=1.2, step=0.1)
-        st.markdown("### Вставки")
-        stone_sizes = list(STONE_PRICES_USD["Натуральні діаманти"].keys())
-        main_size = st.selectbox("Основний діамант — розмір", stone_sizes, index=0)
-        main_qty = st.number_input("Основний діамант — к-сть", min_value=0, value=0, step=1)
-
-        small_size = st.selectbox("Малі діаманти — розмір", stone_sizes, index=0)
-        small_qty = st.number_input("Малі діаманти — к-сть", min_value=0, value=0, step=1)
-
-        st.markdown("### Додатково")
-        discount_percent = st.selectbox("Знижка, %", [0, 7, 10, 15, 20])
-        coating_usd = st.selectbox("Покриття, $", [0, 50, 100, 200])
-        engraving = st.selectbox("Гравіювання, грн", [0, 800, 1500])
-        delivery = st.number_input("Доставка, грн", min_value=0.0, value=0.0, step=100.0)
-
-        calculate_btn = st.button("РОЗРАХУВАТИ", use_container_width=True)
-
-    with right:
-        current_auto_weight = calc_weight(size, width, thickness)
-
-        if calculate_btn:
-            st.session_state.ring_manual_weight = 0.0
-            technical_text, client_text = calculate_ring({
-                "size": size,
-                "width": width,
-                "thickness": thickness,
-                "manual_weight": 0.0,
-                "main_size": main_size,
-                "main_qty": main_qty,
-                "small_size": small_size,
-                "small_qty": small_qty,
-                "discount_percent": discount_percent,
-                "coating_usd": coating_usd,
-                "engraving": engraving,
-                "delivery": delivery,
-            })
-            st.session_state.technical_text = technical_text
-            st.session_state.client_text = client_text
-
-        st.subheader("📊 Технічний розрахунок")
-        st.caption("Тут менеджер може виправити вагу вручну і перерахувати ціну.")
-        manual_weight_right = st.number_input(
-            "Вага виробу, г",
-            min_value=0.0,
-            value=st.session_state.get("ring_manual_weight", 0.0) or current_auto_weight,
-            step=0.1,
-            format="%.2f",
-            key="ring_weight_input",
-        )
-
-        if st.button("ПЕРЕРАХУВАТИ ПО ВАГІ", use_container_width=True, key="recalculate_ring_weight"):
-            st.session_state.ring_manual_weight = manual_weight_right
-            technical_text, client_text = calculate_ring({
-                "size": size,
-                "width": width,
-                "thickness": thickness,
-                "manual_weight": manual_weight_right,
-                "main_size": main_size,
-                "main_qty": main_qty,
-                "small_size": small_size,
-                "small_qty": small_qty,
-                "discount_percent": discount_percent,
-                "coating_usd": coating_usd,
-                "engraving": engraving,
-                "delivery": delivery,
-            })
-            st.session_state.technical_text = technical_text
-            st.session_state.client_text = client_text
-
-        st.text_area("Технічний текст", value=st.session_state.get("technical_text", ""), height=420)
-
-        st.subheader("📋 Текст для клієнта")
-        st.text_area("Скопіюй цей текст клієнту", value=st.session_state.get("client_text", ""), height=300)
+root = tk.Tk()
+show_start_screen()
+root.mainloop()
