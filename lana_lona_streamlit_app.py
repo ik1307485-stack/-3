@@ -213,23 +213,60 @@ def remove_light_background(img):
     return img
 
 
+
+def fit_font(draw, text, start_size, max_width, bold=False, min_size=24):
+    """Підбирає найбільший шрифт, щоб текст вліз у ширину."""
+    size = start_size
+    while size >= min_size:
+        font = get_font(size, bold=bold)
+        lines = wrap_text(draw, text, font, max_width)
+        if all(text_width(draw, line, font) <= max_width for line in lines):
+            return font, lines
+        size -= 2
+    font = get_font(min_size, bold=bold)
+    return font, wrap_text(draw, text, font, max_width)
+
+
+def draw_text_center(draw, text, y, font, fill, canvas_width, stroke=0):
+    bbox = draw.textbbox((0, 0), text, font=font, stroke_width=stroke)
+    x = (canvas_width - (bbox[2] - bbox[0])) / 2
+    draw.text(
+        (x, y),
+        text,
+        font=font,
+        fill=fill,
+        stroke_width=stroke,
+        stroke_fill="#000000",
+    )
+
+
+def draw_text_box_center(draw, text, center_x, y, font, fill, max_width, max_lines=2, line_gap=8):
+    lines = wrap_text(draw, text, font, max_width)
+    yy = y
+    for line in lines[:max_lines]:
+        bbox = draw.textbbox((0, 0), line, font=font, stroke_width=1)
+        x = center_x - (bbox[2] - bbox[0]) / 2
+        draw.text(
+            (x, yy),
+            line,
+            font=font,
+            fill=fill,
+            stroke_width=1,
+            stroke_fill="#000000",
+        )
+        yy += (bbox[3] - bbox[1]) + line_gap
+
+
 def generate_client_image(uploaded_image, poster_data):
+    # Великий формат для чіткого тексту в Instagram / месенджерах
     W, H = 1080, 1350
     bg = Image.new("RGB", (W, H), "#020202")
     draw = ImageDraw.Draw(bg)
 
-    copper = "#d9905b"
-    white = "#f3f3f3"
+    copper = "#e09a62"
+    white = "#f7f7f7"
     muted = "#9c9c9c"
-    line_color = "#b87345"
-
-    title_font = get_font(50, bold=False)
-    subtitle_font = get_font(29, bold=False)
-    label_font = get_font(21, bold=False)
-    value_font = get_font(27, bold=False)
-    price_label_font = get_font(30, bold=False)
-    price_font = get_font(58, bold=False)
-    brand_font = get_font(28, bold=False)
+    line_color = "#c27a4a"
 
     title = poster_data.get("title", "Індивідуальна модель обручок")
     gold = poster_data.get("gold", "Біле родоване золото 585 проби")
@@ -238,68 +275,118 @@ def generate_client_image(uploaded_image, poster_data):
     coating = poster_data.get("coating", "")
     weight = poster_data.get("weight", "")
     price = poster_data.get("price", "")
+    inserts = poster_data.get("inserts", "")
 
-    # Прибираємо emoji, бо частина серверних шрифтів показує їх квадратиками
-    title_clean = title.replace("⚜️", "").replace("💍", "").replace("💎", "").strip().upper()
+    # Прибираємо emoji, бо вони часто ламаються на серверних шрифтах Pillow
+    title_clean = (
+        title.replace("⚜️", "")
+        .replace("💍", "")
+        .replace("💎", "")
+        .strip()
+        .upper()
+    )
     gold_clean = gold.replace("💍", "").strip().upper()
 
-    # Заголовок
-    title_lines = wrap_text(draw, title_clean, title_font, 950)
-    y = 65
-    for line in title_lines[:2]:
-        draw_center(draw, line, y, title_font, copper, W)
-        y += 64
+    # Шрифти більші, щоб текст нормально читався
+    title_font, title_lines = fit_font(draw, title_clean, 72, 980, bold=False, min_size=44)
+    subtitle_font, subtitle_lines = fit_font(draw, gold_clean, 40, 920, bold=False, min_size=30)
+    label_font = get_font(30, bold=True)
+    value_font = get_font(34, bold=False)
+    price_label_font = get_font(42, bold=True)
+    price_font = get_font(82, bold=False)
+    brand_font = get_font(38, bold=False)
 
-    draw_center(draw, gold_clean, 205, subtitle_font, white, W)
+    # Заголовок
+    y = 42
+    for line in title_lines[:2]:
+        draw_text_center(draw, line, y, title_font, copper, W, stroke=1)
+        y += 78
+
+    subtitle_y = max(y + 8, 185)
+    for line in subtitle_lines[:1]:
+        draw_text_center(draw, line, subtitle_y, subtitle_font, white, W, stroke=1)
 
     # Фото виробу: прибираємо білий фон і кладемо на чорний
+    uploaded_image.seek(0)
     img = Image.open(uploaded_image)
     img = remove_light_background(img)
-    img.thumbnail((820, 630), Image.LANCZOS)
+    img.thumbnail((850, 590), Image.LANCZOS)
 
     img_x = (W - img.width) // 2
-    img_y = 310
+    img_y = 285
     bg.paste(img, (img_x, img_y), img)
 
-    # Характеристики
-    y_top = 965
+    # Нижній блок характеристик
+    y_top = 900
+
+    gold_value = (
+        gold.replace("Біле родоване ", "")
+        .replace(" проби 💍", "")
+        .replace(" проби", "")
+        .strip()
+    )
+    sizes_value = sizes.replace("Розміри: ", "").replace("Розмір: ", "").strip()
+    widths_value = widths.replace("Ширина: ", "").strip()
+    coating_value = coating.replace("Покриття: ", "").strip()
+    weight_value = weight.replace("Середня вага виробу: ", "").strip()
+    inserts_value = inserts.replace("Вставки: ", "").strip()
+
     cols = [
-        ("ЗОЛОТО", gold.replace("Біле родоване ", "").replace(" проби 💍", "").replace(" проби", "")),
-        ("РОЗМІРИ", sizes.replace("Розміри: ", "").replace("Розмір: ", "")),
-        ("ШИРИНА", widths.replace("Ширина: ", "")),
-        ("ПОКРИТТЯ", coating.replace("Покриття: ", "")),
-        ("ВАГА", weight.replace("Середня вага виробу: ", "")),
+        ("ЗОЛОТО", gold_value),
+        ("РОЗМІРИ" if "та" in sizes_value else "РОЗМІР", sizes_value),
+        ("ШИРИНА", widths_value),
+        ("ПОКРИТТЯ", coating_value),
+        ("ВАГА", weight_value),
     ]
+
+    if inserts_value and inserts_value != "не додано":
+        cols.append(("ВСТАВКИ", inserts_value))
+
     col_w = W / len(cols)
 
     for i, (label, value) in enumerate(cols):
         x_center = col_w * i + col_w / 2
 
-        label_w = text_width(draw, label, label_font)
-        draw.text((x_center - label_w / 2, y_top), label, font=label_font, fill=copper)
+        # для 6 колонок трохи зменшуємо, але все одно крупно
+        lf = get_font(26 if len(cols) == 6 else 30, bold=True)
+        vf = get_font(30 if len(cols) == 6 else 34, bold=False)
 
-        value_lines = wrap_text(draw, value, value_font, col_w - 24)
-        yy = y_top + 45
-        for line in value_lines[:2]:
-            value_w = text_width(draw, line, value_font)
-            draw.text((x_center - value_w / 2, yy), line, font=value_font, fill=white)
-            yy += 36
+        label_w = text_width(draw, label, lf)
+        draw.text(
+            (x_center - label_w / 2, y_top),
+            label,
+            font=lf,
+            fill=copper,
+            stroke_width=1,
+            stroke_fill="#000000",
+        )
+
+        draw_text_box_center(
+            draw,
+            value,
+            x_center,
+            y_top + 52,
+            vf,
+            white,
+            col_w - 20,
+            max_lines=2,
+            line_gap=8,
+        )
 
         if i > 0:
             x_line = int(col_w * i)
-            draw.line((x_line, y_top, x_line, y_top + 115), fill=line_color, width=2)
+            draw.line((x_line, y_top - 10, x_line, y_top + 135), fill=line_color, width=3)
 
     # Лінія та ціна
-    draw.line((110, 1125, 970, 1125), fill=line_color, width=2)
-    draw_center(draw, "СЕРЕДНЯ ВАРТІСТЬ ВИРОБУ:", 1170, price_label_font, copper, W)
-    draw_center(draw, f"{price} грн", 1230, price_font, copper, W)
-    draw_center(draw, "LANA & LONA", 1310, brand_font, muted, W)
+    draw.line((90, 1085, 990, 1085), fill=line_color, width=3)
+    draw_text_center(draw, "СЕРЕДНЯ ВАРТІСТЬ ВИРОБУ:", 1130, price_label_font, copper, W, stroke=1)
+    draw_text_center(draw, f"{price} грн", 1195, price_font, copper, W, stroke=1)
+    draw_text_center(draw, "LANA & LONA", 1290, brand_font, muted, W, stroke=1)
 
     buffer = io.BytesIO()
     bg.save(buffer, format="PNG")
     buffer.seek(0)
     return buffer
-
 
 def calculate_wedding_rings(data):
     usd_rate = get_usd_rate()
