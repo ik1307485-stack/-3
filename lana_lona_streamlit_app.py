@@ -1,8 +1,5 @@
 import streamlit as st
 import requests
-from PIL import Image, ImageDraw, ImageFont
-import io
-
 
 GOLD_PRICE = 4600
 WORK_VYSHYVANKA = 3100
@@ -74,7 +71,7 @@ def money100(value):
 def calc_weight(size, width, thickness):
     w = width / 10
     t = thickness / 10
-    length = ((size * 3.14) / 10) + (thickness / 10) * 3
+    length = ((size * 3.14) / 10) + (width / 10) * 3
     return length * w * t * K
 
 
@@ -110,283 +107,6 @@ def make_inserts_text(main_size, main_qty, small_size, small_qty):
 
     return "; ".join(parts) if parts else "не додано"
 
-
-
-
-def get_font(size, bold=False):
-    """Підбирає шрифт, який нормально підтримує українську мову."""
-    font_paths = []
-
-    # 1) Часто є на Streamlit Cloud / Linux
-    if bold:
-        font_paths += [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSerif-Bold.ttf",
-            "/usr/share/fonts/truetype/noto/NotoSerif-Bold.ttf",
-            "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
-        ]
-    else:
-        font_paths += [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf",
-            "/usr/share/fonts/truetype/noto/NotoSerif-Regular.ttf",
-            "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
-        ]
-
-    # 2) Якщо є matplotlib — він майже завжди має DejaVu Sans всередині
-    try:
-        import matplotlib.font_manager as fm
-        font_paths.append(fm.findfont("DejaVu Sans", fallback_to_default=True))
-    except Exception:
-        pass
-
-    # 3) Локальні назви
-    font_paths += [
-        "DejaVuSans.ttf",
-        "DejaVuSerif.ttf",
-        "Arial.ttf",
-    ]
-
-    for font_path in font_paths:
-        try:
-            return ImageFont.truetype(font_path, size)
-        except Exception:
-            continue
-
-    return ImageFont.load_default()
-
-
-def text_width(draw, text, font):
-    bbox = draw.textbbox((0, 0), text, font=font)
-    return bbox[2] - bbox[0]
-
-
-def draw_center(draw, text, y, font, fill, canvas_width):
-    bbox = draw.textbbox((0, 0), text, font=font)
-    x = (canvas_width - (bbox[2] - bbox[0])) / 2
-    draw.text((x, y), text, font=font, fill=fill)
-
-
-def wrap_text(draw, text, font, max_width):
-    words = str(text).split()
-    lines = []
-    current = ""
-
-    for word in words:
-        test = word if not current else current + " " + word
-        if text_width(draw, test, font) <= max_width:
-            current = test
-        else:
-            if current:
-                lines.append(current)
-            current = word
-
-    if current:
-        lines.append(current)
-
-    return lines
-
-
-def remove_light_background(img):
-    """Робить білий/світлий фон прозорим, щоб фото лягало на чорний фон."""
-    img = img.convert("RGBA")
-    pixels = img.load()
-    w, h = img.size
-
-    for y in range(h):
-        for x in range(w):
-            r, g, b, a = pixels[x, y]
-
-            # Білий або майже білий фон
-            if r > 225 and g > 225 and b > 225:
-                pixels[x, y] = (r, g, b, 0)
-            # Дуже світло-сірий фон
-            elif r > 210 and g > 210 and b > 210 and abs(r - g) < 18 and abs(g - b) < 18:
-                pixels[x, y] = (r, g, b, 0)
-
-    bbox = img.getbbox()
-    if bbox:
-        img = img.crop(bbox)
-
-    return img
-
-
-
-def fit_font(draw, text, start_size, max_width, bold=False, min_size=24):
-    """Підбирає найбільший шрифт, щоб текст вліз у ширину."""
-    size = start_size
-    while size >= min_size:
-        font = get_font(size, bold=bold)
-        lines = wrap_text(draw, text, font, max_width)
-        if all(text_width(draw, line, font) <= max_width for line in lines):
-            return font, lines
-        size -= 2
-    font = get_font(min_size, bold=bold)
-    return font, wrap_text(draw, text, font, max_width)
-
-
-def draw_text_center(draw, text, y, font, fill, canvas_width, stroke=0):
-    bbox = draw.textbbox((0, 0), text, font=font, stroke_width=stroke)
-    x = (canvas_width - (bbox[2] - bbox[0])) / 2
-    draw.text(
-        (x, y),
-        text,
-        font=font,
-        fill=fill,
-        stroke_width=stroke,
-        stroke_fill="#000000",
-    )
-
-
-def draw_text_box_center(draw, text, center_x, y, font, fill, max_width, max_lines=2, line_gap=8):
-    lines = wrap_text(draw, text, font, max_width)
-    yy = y
-    for line in lines[:max_lines]:
-        bbox = draw.textbbox((0, 0), line, font=font, stroke_width=1)
-        x = center_x - (bbox[2] - bbox[0]) / 2
-        draw.text(
-            (x, yy),
-            line,
-            font=font,
-            fill=fill,
-            stroke_width=1,
-            stroke_fill="#000000",
-        )
-        yy += (bbox[3] - bbox[1]) + line_gap
-
-
-def generate_client_image(uploaded_image, poster_data):
-    # Великий формат для чіткого тексту в Instagram / месенджерах
-    W, H = 1080, 1350
-    bg = Image.new("RGB", (W, H), "#020202")
-    draw = ImageDraw.Draw(bg)
-
-    copper = "#e09a62"
-    white = "#f7f7f7"
-    muted = "#9c9c9c"
-    line_color = "#c27a4a"
-
-    title = poster_data.get("title", "Індивідуальна модель обручок")
-    gold = poster_data.get("gold", "Біле родоване золото 585 проби")
-    sizes = poster_data.get("sizes", "")
-    widths = poster_data.get("widths", "")
-    coating = poster_data.get("coating", "")
-    weight = poster_data.get("weight", "")
-    price = poster_data.get("price", "")
-    inserts = poster_data.get("inserts", "")
-
-    # Прибираємо emoji, бо вони часто ламаються на серверних шрифтах Pillow
-    title_clean = (
-        title.replace("⚜️", "")
-        .replace("💍", "")
-        .replace("💎", "")
-        .strip()
-        .upper()
-    )
-    gold_clean = gold.replace("💍", "").strip().upper()
-
-    # Шрифти більші, щоб текст нормально читався
-    title_font, title_lines = fit_font(draw, title_clean, 72, 980, bold=False, min_size=44)
-    subtitle_font, subtitle_lines = fit_font(draw, gold_clean, 40, 920, bold=False, min_size=30)
-    label_font = get_font(30, bold=True)
-    value_font = get_font(34, bold=False)
-    price_label_font = get_font(42, bold=True)
-    price_font = get_font(82, bold=False)
-    brand_font = get_font(38, bold=False)
-
-    # Заголовок
-    y = 42
-    for line in title_lines[:2]:
-        draw_text_center(draw, line, y, title_font, copper, W, stroke=1)
-        y += 78
-
-    subtitle_y = max(y + 8, 185)
-    for line in subtitle_lines[:1]:
-        draw_text_center(draw, line, subtitle_y, subtitle_font, white, W, stroke=1)
-
-    # Фото виробу: прибираємо білий фон і кладемо на чорний
-    uploaded_image.seek(0)
-    img = Image.open(uploaded_image)
-    img = remove_light_background(img)
-    img.thumbnail((850, 590), Image.LANCZOS)
-
-    img_x = (W - img.width) // 2
-    img_y = 285
-    bg.paste(img, (img_x, img_y), img)
-
-    # Нижній блок характеристик
-    y_top = 900
-
-    gold_value = (
-        gold.replace("Біле родоване ", "")
-        .replace(" проби 💍", "")
-        .replace(" проби", "")
-        .strip()
-    )
-    sizes_value = sizes.replace("Розміри: ", "").replace("Розмір: ", "").strip()
-    widths_value = widths.replace("Ширина: ", "").strip()
-    coating_value = coating.replace("Покриття: ", "").strip()
-    weight_value = weight.replace("Середня вага виробу: ", "").strip()
-    inserts_value = inserts.replace("Вставки: ", "").strip()
-
-    cols = [
-        ("ЗОЛОТО", gold_value),
-        ("РОЗМІРИ" if "та" in sizes_value else "РОЗМІР", sizes_value),
-        ("ШИРИНА", widths_value),
-        ("ПОКРИТТЯ", coating_value),
-        ("ВАГА", weight_value),
-    ]
-
-    if inserts_value and inserts_value != "не додано":
-        cols.append(("ВСТАВКИ", inserts_value))
-
-    col_w = W / len(cols)
-
-    for i, (label, value) in enumerate(cols):
-        x_center = col_w * i + col_w / 2
-
-        # для 6 колонок трохи зменшуємо, але все одно крупно
-        lf = get_font(26 if len(cols) == 6 else 30, bold=True)
-        vf = get_font(30 if len(cols) == 6 else 34, bold=False)
-
-        label_w = text_width(draw, label, lf)
-        draw.text(
-            (x_center - label_w / 2, y_top),
-            label,
-            font=lf,
-            fill=copper,
-            stroke_width=1,
-            stroke_fill="#000000",
-        )
-
-        draw_text_box_center(
-            draw,
-            value,
-            x_center,
-            y_top + 52,
-            vf,
-            white,
-            col_w - 20,
-            max_lines=2,
-            line_gap=8,
-        )
-
-        if i > 0:
-            x_line = int(col_w * i)
-            draw.line((x_line, y_top - 10, x_line, y_top + 135), fill=line_color, width=3)
-
-    # Лінія та ціна
-    draw.line((90, 1085, 990, 1085), fill=line_color, width=3)
-    draw_text_center(draw, "СЕРЕДНЯ ВАРТІСТЬ ВИРОБУ:", 1130, price_label_font, copper, W, stroke=1)
-    draw_text_center(draw, f"{price} грн", 1195, price_font, copper, W, stroke=1)
-    draw_text_center(draw, "LANA & LONA", 1290, brand_font, muted, W, stroke=1)
-
-    buffer = io.BytesIO()
-    bg.save(buffer, format="PNG")
-    buffer.seek(0)
-    return buffer
 
 def calculate_wedding_rings(data):
     usd_rate = get_usd_rate()
@@ -568,17 +288,7 @@ def calculate_wedding_rings(data):
 {money100(total)} грн 💎
 """
 
-    poster_data = {
-        "title": title,
-        "gold": "Біле родоване золото 585 проби 💍",
-        "sizes": client_sizes_text,
-        "widths": client_width_text,
-        "coating": f"Покриття: {coating_client}",
-        "weight": f"Середня вага виробу: {total_weight:.1f} г",
-        "price": money100(total),
-    }
-
-    return technical_text, client_text, poster_data
+    return technical_text, client_text
 
 
 def calculate_ring(data):
@@ -729,17 +439,7 @@ def calculate_ring(data):
 {money100(variant_totals["Муасаніти"])} грн 💎
 """
 
-    poster_data = {
-        "title": "Каблучка індивідуального дизайну ⚜️",
-        "gold": "Біле родоване золото 585 проби 💍",
-        "sizes": f"Розмір: {size:g}",
-        "widths": f"Ширина: {width:g} мм",
-        "coating": f"Покриття: {coating_client}",
-        "weight": f"Середня вага виробу: {total_weight:.1f} г",
-        "price": money100(total),
-    }
-
-    return technical_text, client_text, poster_data
+    return technical_text, client_text
 
 
 st.set_page_config(page_title="Калькулятор Lana & Lona", layout="wide")
@@ -859,7 +559,7 @@ elif st.session_state.screen == "wedding":
             st.session_state.wedding_manual_weight_1 = 0.0
             st.session_state.wedding_manual_weight_2 = 0.0
 
-            technical_text, client_text, poster_data = calculate_wedding_rings({
+            technical_text, client_text = calculate_wedding_rings({
                 "design": design,
                 "use_second_ring": use_second_ring,
                 "size_1": size_1,
@@ -882,7 +582,6 @@ elif st.session_state.screen == "wedding":
 
             st.session_state.technical_text = technical_text
             st.session_state.client_text = client_text
-            st.session_state.poster_data = poster_data
 
         st.subheader("📊 Технічний розрахунок")
         st.caption("Тут менеджер може виправити вагу вручну і перерахувати ціну.")
@@ -928,7 +627,7 @@ elif st.session_state.screen == "wedding":
             st.session_state.wedding_manual_weight_1 = manual_weight_1_right
             st.session_state.wedding_manual_weight_2 = manual_weight_2_right
 
-            technical_text, client_text, poster_data = calculate_wedding_rings({
+            technical_text, client_text = calculate_wedding_rings({
                 "design": design,
                 "use_second_ring": use_second_ring,
                 "size_1": size_1,
@@ -951,7 +650,6 @@ elif st.session_state.screen == "wedding":
 
             st.session_state.technical_text = technical_text
             st.session_state.client_text = client_text
-            st.session_state.poster_data = poster_data
 
         st.text_area(
             "Технічний текст",
@@ -963,58 +661,6 @@ elif st.session_state.screen == "wedding":
         client_text = st.session_state.get("client_text", "")
         st.code(client_text, language=None)
         st.caption("Натисни кнопку у правому верхньому куті блоку, щоб скопіювати текст.")
-
-        st.subheader("🖼️ Картинка для клієнта")
-        uploaded_product_image = st.file_uploader(
-            "Завантаж фото виробу",
-            type=["jpg", "jpeg", "png"],
-            key="ring_product_image",
-        )
-
-        if uploaded_product_image and st.session_state.get("poster_data"):
-            if st.button("Згенерувати картинку для клієнта", use_container_width=True, key="generate_ring_poster"):
-                image_buffer = generate_client_image(
-                    uploaded_product_image,
-                    st.session_state.poster_data,
-                )
-                st.session_state.generated_client_image = image_buffer.getvalue()
-
-        if st.session_state.get("generated_client_image"):
-            st.image(st.session_state.generated_client_image, use_container_width=True)
-            st.download_button(
-                "Завантажити картинку",
-                data=st.session_state.generated_client_image,
-                file_name="lana_lona_offer.png",
-                mime="image/png",
-                use_container_width=True,
-                key="download_ring_poster",
-            )
-
-        st.subheader("🖼️ Картинка для клієнта")
-        uploaded_product_image = st.file_uploader(
-            "Завантаж фото виробу",
-            type=["jpg", "jpeg", "png"],
-            key="wedding_product_image",
-        )
-
-        if uploaded_product_image and st.session_state.get("poster_data"):
-            if st.button("Згенерувати картинку для клієнта", use_container_width=True, key="generate_wedding_poster"):
-                image_buffer = generate_client_image(
-                    uploaded_product_image,
-                    st.session_state.poster_data,
-                )
-                st.session_state.generated_client_image = image_buffer.getvalue()
-
-        if st.session_state.get("generated_client_image"):
-            st.image(st.session_state.generated_client_image, use_container_width=True)
-            st.download_button(
-                "Завантажити картинку",
-                data=st.session_state.generated_client_image,
-                file_name="lana_lona_offer.png",
-                mime="image/png",
-                use_container_width=True,
-                key="download_wedding_poster",
-            )
 
 
 elif st.session_state.screen == "ring":
@@ -1054,7 +700,7 @@ elif st.session_state.screen == "ring":
         if calculate_btn:
             st.session_state.ring_manual_weight = 0.0
 
-            technical_text, client_text, poster_data = calculate_ring({
+            technical_text, client_text = calculate_ring({
                 "size": size,
                 "width": width,
                 "thickness": thickness,
@@ -1071,7 +717,6 @@ elif st.session_state.screen == "ring":
 
             st.session_state.technical_text = technical_text
             st.session_state.client_text = client_text
-            st.session_state.poster_data = poster_data
 
         st.subheader("📊 Технічний розрахунок")
         st.caption("Тут менеджер може виправити вагу вручну і перерахувати ціну.")
@@ -1092,7 +737,7 @@ elif st.session_state.screen == "ring":
         ):
             st.session_state.ring_manual_weight = manual_weight_right
 
-            technical_text, client_text, poster_data = calculate_ring({
+            technical_text, client_text = calculate_ring({
                 "size": size,
                 "width": width,
                 "thickness": thickness,
@@ -1109,7 +754,6 @@ elif st.session_state.screen == "ring":
 
             st.session_state.technical_text = technical_text
             st.session_state.client_text = client_text
-            st.session_state.poster_data = poster_data
 
         st.text_area(
             "Технічний текст",
