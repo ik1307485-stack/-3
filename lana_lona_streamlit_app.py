@@ -71,7 +71,7 @@ def money100(value):
 def calc_weight(size, width, thickness):
     w = width / 10
     t = thickness / 10
-    length = ((size * 3.14) / 10) + (width / 10) * 3
+    length = ((size * 3.14) / 10) + (thickness / 10) * 3
     return length * w * t * K
 
 
